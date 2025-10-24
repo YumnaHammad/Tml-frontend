@@ -1,10 +1,16 @@
 import axios from 'axios';
 
 // Create axios instance with base configuration
-// Smart detection: Use live backend URL everywhere
 const getBaseURL = () => {
-  // Use the live backend URL for all environments
-  return import.meta.env.VITE_API_URL || 'https://tml-backend.vercel.app/api';
+  // Check for environment variable first, then fallback to production URL
+  const apiUrl = import.meta.env.VITE_API_URL;
+  
+  if (apiUrl) {
+    return apiUrl.endsWith('/api') ? apiUrl : `${apiUrl}/api`;
+  }
+  
+  // Production fallback
+  return 'https://tml-backend.vercel.app/api';
 };
 
 const api = axios.create({

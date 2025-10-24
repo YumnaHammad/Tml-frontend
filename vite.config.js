@@ -8,9 +8,26 @@ export default defineConfig({
     port: 3001,
     proxy: {
       '/api': {
-        target: 'https://tml-backend.vercel.app',
+        target: process.env.VITE_API_URL || 'https://tml-backend.vercel.app',
         changeOrigin: true,
       },
     },
   },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          ui: ['framer-motion', 'lucide-react'],
+          utils: ['axios', 'react-hot-toast']
+        }
+      }
+    }
+  },
+  define: {
+    'process.env': process.env
+  }
 })
