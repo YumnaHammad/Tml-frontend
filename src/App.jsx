@@ -224,7 +224,7 @@ function App() {
                 zIndex: 99999,
               },
               success: {
-                duration: 3000,
+                duration: 2000,
                 style: {
                   background: '#10b981',
                   color: '#fff',

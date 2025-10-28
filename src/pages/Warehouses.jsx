@@ -322,6 +322,86 @@ const Warehouses = () => {
     );
   }
 
+  // Export inventory data
+  const handleExportInventory = async () => {
+    if (!selectedWarehouse || !selectedWarehouse.currentStock) {
+      toast.error('No inventory data to export');
+      return;
+    }
+
+    try {
+      // Merge duplicate product/variant entries by product name + variant name (same logic as table)
+      const mergedStock = {};
+      
+      selectedWarehouse.currentStock.forEach(stockItem => {
+        const productName = stockItem.productId?.name || 'Unknown Product';
+        const variantName = stockItem.variantDetails?.name || stockItem.variantName || 'no-variant';
+        const key = `${productName}-${variantName}`;
+        
+        if (!mergedStock[key]) {
+          mergedStock[key] = {
+            ...stockItem,
+            quantity: 0,
+            reservedQuantity: 0,
+            deliveredQuantity: 0,
+            confirmedDeliveredQuantity: 0,
+            expectedReturns: 0,
+            returnedQuantity: 0,
+            displayProductName: productName,
+            displayVariantName: variantName,
+            displaySKU: stockItem.variantDetails?.sku || stockItem.productId?.sku || 'N/A'
+          };
+        }
+        
+        // Sum up quantities
+        mergedStock[key].quantity += (stockItem.quantity || 0);
+        mergedStock[key].reservedQuantity += (stockItem.reservedQuantity || 0);
+        mergedStock[key].deliveredQuantity += (stockItem.deliveredQuantity || 0);
+        mergedStock[key].confirmedDeliveredQuantity += (stockItem.confirmedDeliveredQuantity || 0);
+        mergedStock[key].expectedReturns += (stockItem.expectedReturns || 0);
+        mergedStock[key].returnedQuantity += (stockItem.returnedQuantity || 0);
+      });
+
+      // Prepare object rows for export
+      const rows = Object.values(mergedStock).map((stockItem, index) => {
+        const displayName = stockItem.displayVariantName !== 'no-variant'
+          ? `${stockItem.displayProductName} / ${stockItem.displayVariantName}`
+          : stockItem.displayProductName;
+        const availableNow = (stockItem.quantity || 0)
+          - (stockItem.reservedQuantity || 0)
+          - (stockItem.deliveredQuantity || 0)
+          - (stockItem.confirmedDeliveredQuantity || 0);
+        const status = (stockItem.tags && stockItem.tags.length > 0)
+          ? stockItem.tags.join(', ')
+          : 'Good';
+        return {
+          '#': index + 1,
+          'Product / Variant': displayName,
+          'SKU': stockItem.displaySKU,
+          'Total Stock': stockItem.quantity || 0,
+          'Reserved': stockItem.reservedQuantity || 0,
+          'Delivered': stockItem.deliveredQuantity || 0,
+          'Confirmed Delivered': stockItem.confirmedDeliveredQuantity || 0,
+          'Expected Return': stockItem.expectedReturns || 0,
+          'Received Back': stockItem.returnedQuantity || 0,
+          'Available Now': availableNow,
+          'Status': status
+        };
+      });
+      // Use Excel export utility
+      const { exportToExcel } = await import('../utils/exportUtils');
+      const filename = `${selectedWarehouse.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_inventory`;
+      const result = exportToExcel(rows, filename, 'Inventory');
+      if (!result || !result.success) {
+        throw new Error(result?.error || 'Excel export failed');
+      }
+      toast.success('Inventory exported successfully!');
+    } catch (error) {
+      console.error('Error exporting inventory:', error);
+      toast.error('Failed to export inventory data');
+    }
+  };
+
   if (selectedWarehouse) {
     return (
       <div className="space-y-6">
@@ -444,7 +524,17 @@ const Warehouses = () => {
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Product Inventory</h3>
-            <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleExportInventory()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center text-sm transition-colors duration-200"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download Table
+              </button>
+              <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 bg-blue-100 rounded"></div>
                 <span className="text-gray-600">Total Stock</span>
@@ -474,12 +564,16 @@ const Warehouses = () => {
                 <span className="text-gray-600">Available Now</span>
               </div>
             </div>
+            </div>
           </div>
           {selectedWarehouse.currentStock && selectedWarehouse.currentStock.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      #
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Product / Variant
                     </th>
@@ -587,6 +681,11 @@ const Warehouses = () => {
                       transition={{ delay: index * 0.1 }}
                       className="hover:bg-gray-50"
                     >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {index + 1}
+                        </div>
+                      </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">
                           {displayName}
@@ -966,6 +1065,7 @@ const Warehouses = () => {
     const { exportWarehouses } = await import('../utils/exportUtils');
     return exportWarehouses(warehouses, format);
   };
+
 
   return (
     <div className="">

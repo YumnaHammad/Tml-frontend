@@ -413,29 +413,21 @@ const Purchases = () => {
   // Download invoice/receipt
   const handleDownloadDocument = async (purchaseId, type = 'invoice', format = 'pdf') => {
     try {
+      const purchase = purchases.find(p => p._id === purchaseId);
+      if (!purchase) {
+        toast.error('Purchase not found');
+        return;
+      }
+
       if (type === 'receipt') {
-        // Use the new receipt generator for receipts
-        const purchase = purchases.find(p => p._id === purchaseId);
-        if (purchase) {
-          const doc = ReceiptGenerator.generatePurchaseReceipt(purchase, purchase.supplierId);
-          doc.save(`receipt_${purchase.purchaseNumber}.pdf`);
-          toast.success('Receipt downloaded successfully');
-        } else {
-          toast.error('Purchase not found');
-        }
+        const doc = ReceiptGenerator.generatePurchaseReceipt(purchase, purchase.supplierId);
+        doc.save(`receipt_${purchase.purchaseNumber}.pdf`);
+        toast.success('Receipt downloaded successfully');
       } else {
-        // Use the old method for invoices
-        const response = await api.get(`/purchases/${purchaseId}/download?type=${type}`);
-        
-        if (response.data.success) {
-          const result = await generateDocument(response.data.document, format, type);
-          
-          if (result.success) {
-            toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} downloaded successfully!`);
-          } else {
-            toast.error(result.error || `Failed to generate ${type}`);
-          }
-        }
+        // Use the new invoice generator to match receipt design
+        const doc = ReceiptGenerator.generateInvoice(purchase, purchase.supplierId);
+        doc.save(`invoice_${purchase.purchaseNumber}.pdf`);
+        toast.success('Invoice downloaded successfully');
       }
     } catch (error) {
       console.error('Download document error:', error);

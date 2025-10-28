@@ -128,9 +128,10 @@ const ProductList = () => {
     return { text: 'In Stock', color: 'text-green-500', bgColor: 'bg-green-100' };
   };
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.sku.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredProducts = products.filter((product) => {
+    const term = (searchTerm || '').trim().toLowerCase();
+    const name = (product?.name || '').toLowerCase();
+    const matchesSearch = term === '' || name.includes(term);
     const matchesCategory = !filterCategory || product.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
