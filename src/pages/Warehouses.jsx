@@ -44,6 +44,7 @@ const Warehouses = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [warehouseToDeleteConfirm, setWarehouseToDeleteConfirm] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [inventorySearch, setInventorySearch] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
   const { user, hasAnyRole } = useAuth();
@@ -525,6 +526,13 @@ const Warehouses = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Product Inventory</h3>
             <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={inventorySearch}
+                onChange={(e) => setInventorySearch(e.target.value)}
+                placeholder="Search products..."
+                className="input-field w-64"
+              />
               <button
                 onClick={() => handleExportInventory()}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center text-sm transition-colors duration-200"
@@ -663,7 +671,18 @@ const Warehouses = () => {
                       mergedStock[key].returnedQuantity += (stockItem.returnedQuantity || 0);
                     });
                     
-                    return Object.values(mergedStock).map((stockItem, index) => {
+                    const filteredRows = Object.values(mergedStock).filter((s) => {
+                      if (!inventorySearch.trim()) return true;
+                      const displayName = s.displayVariantName !== 'no-variant'
+                        ? `${s.displayProductName} / ${s.displayVariantName}`
+                        : s.displayProductName;
+                      return (
+                        displayName.toLowerCase().includes(inventorySearch.toLowerCase()) ||
+                        (s.displaySKU || '').toLowerCase().includes(inventorySearch.toLowerCase())
+                      );
+                    });
+
+                    return filteredRows.map((stockItem, index) => {
                       // Use the stored display names for consistent display
                       const displayName = stockItem.displayVariantName !== 'no-variant' 
                         ? `${stockItem.displayProductName} / ${stockItem.displayVariantName}`
