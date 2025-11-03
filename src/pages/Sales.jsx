@@ -1052,12 +1052,10 @@ const Sales = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Notes
                         </th>
-                        {/* CN Number column - Hidden for agents */}
-                        {user?.role !== 'agent' && (
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            CN Number
-                          </th>
-                        )}
+                        {/* CN Number column - Visible to all roles */}
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          CN Number
+                        </th>
                         {/* Status column - Hidden for agents */}
                         {user?.role !== 'agent' && (
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1181,12 +1179,10 @@ const Sales = () => {
                               {sale.notes || '-'}
                             </div>
                           </td>
-                          {/* CN Number - Hidden for agents */}
-                          {user?.role !== 'agent' && (
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{sale.customerInfo?.cnNumber || '-'}</div>
-                            </td>
-                          )}
+                          {/* CN Number - Visible to all roles */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{sale.customerInfo?.cnNumber || '-'}</div>
+                          </td>
                           {/* Status - Hidden for agents */}
                           {user?.role !== 'agent' && (
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -1361,7 +1357,7 @@ const Sales = () => {
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
-                              {/* Edit button - Only for admin and manager, not for agents */}
+                              {/* Edit button - Only for admin and manager, not for agents - Always enabled but order details are read-only */}
                               {user?.role !== 'agent' && (
                                 <button
                                   onClick={(e) => {
@@ -1369,13 +1365,13 @@ const Sales = () => {
                                     handleEditSale(sale);
                                   }}
                                   className="bg-yellow-600 hover:bg-yellow-700 text-white p-1.5 rounded transition-colors flex-shrink-0"
-                                  title="Edit Sales Order"
+                                  title="Edit Sales Order (Order details are read-only)"
                                 >
                                   <Edit className="w-4 h-4" />
                                 </button>
                               )}
-                              {/* Delete button - Only for admin and manager, not for agents */}
-                              {user?.role !== 'agent' && (
+                              {/* Delete button - Only for admin and manager, not for agents - Hide after dispatch or QC reject */}
+                              {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus !== 'rejected' && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1443,7 +1439,7 @@ const Sales = () => {
                         <Eye className="w-3 h-3 mr-1" />
                         View
                       </button>
-                      {/* Edit button - Only for admin and manager, not for agents */}
+                      {/* Edit button - Only for admin and manager, not for agents - Always enabled but order details are read-only */}
                       {user?.role !== 'agent' && (
                         <button
                           onClick={(e) => {
@@ -1451,14 +1447,14 @@ const Sales = () => {
                             handleEditSale(sale);
                           }}
                           className="bg-yellow-600 hover:bg-yellow-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                          title="Edit Sales Order"
+                          title="Edit Sales Order (Order details are read-only)"
                         >
                           <Edit className="w-3 h-3 mr-1" />
                           Edit
                         </button>
                       )}
-                      {/* Delete button - Only for admin and manager, not for agents */}
-                      {user?.role !== 'agent' && (
+                      {/* Delete button - Only for admin and manager, not for agents - Hide after dispatch or QC reject */}
+                      {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus !== 'rejected' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
