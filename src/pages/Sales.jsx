@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Truck, Plus, TrendingUp, DollarSign, Calendar, Clock, Filter, RefreshCw, CheckCircle, XCircle, Download, Package, RotateCcw, ArrowRight, X, Grid3X3, List } from 'lucide-react';
+import { Truck, Plus, TrendingUp, DollarSign, Calendar, Clock, Filter, RefreshCw, CheckCircle, XCircle, Download, Package, RotateCcw, ArrowRight, X, List, Eye, Edit, Trash2, Table2 } from 'lucide-react';
 import CenteredLoader from '../components/CenteredLoader';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SalesFormPage from './forms/SalesFormPage';
 import api from '../services/api';
 import ExportButton from '../components/ExportButton';
 import toast from 'react-hot-toast';
+import { useAuth } from '../contexts/AuthContext';
 
 const Sales = () => {
   const [loading, setLoading] = useState(true);
@@ -23,22 +24,43 @@ const Sales = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmSale, setConfirmSale] = useState(null);
+  // View and Edit modal state
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedSale, setSelectedSale] = useState(null);
+  const [editingSaleId, setEditingSaleId] = useState(null);
   const [timeFilter, setTimeFilter] = useState('all'); // all, day, week, month
   const [sortFilter, setSortFilter] = useState('newest'); // newest, oldest, amount_high, amount_low, status
   const [selectedDate, setSelectedDate] = useState(''); // For calendar date picker
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState('list'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('table'); // 'list' or 'table'
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [searchTerm, setSearchTerm] = useState(''); // Search filter for phone number and CN number
+  const [totalSalesCount, setTotalSalesCount] = useState(0); // Total sales count from server
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth(); // Get user role for access control
 
-  // Fetch sales data
+  // Fetch sales data with server-side pagination
   const fetchSales = async () => {
     try {
       setRefreshing(true);
-      const response = await api.get('/sales?limit=1000'); // Fetch all sales
+      // Use server-side pagination - fetch larger page size but still paginated
+      // For stats, we need total count, so fetch current page + get total from response
+      const pageSize = 100; // Reasonable page size for initial load
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: pageSize.toString()
+      });
+      
+      // Add search to backend if provided
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
+      }
+      
+      const response = await api.get(`/sales?${params.toString()}`);
       let salesData = response.data?.salesOrders || [];
+      const totalFromServer = response.data?.total || 0;
       
       // Check for temporary sales in localStorage (newly created ones)
       const tempSales = JSON.parse(localStorage.getItem('tempSales') || '[]');
@@ -60,15 +82,21 @@ const Sales = () => {
       // Always use real data from API, even if empty
       setSales(sortedSales);
       
-      // Calculate stats from real data (will be 0 if no sales)
+      // For stats, we need to fetch aggregated data separately for accuracy
+      // For now, calculate from current page (approximate) or fetch stats endpoint if available
+      // Note: For large datasets, stats should come from separate aggregation endpoint
       const stats = {
-        totalSales: salesData.length,
+        totalSales: totalFromServer || salesData.length,
+        // For delivered/returns/revenue, approximate from current page or use aggregation
         totalDelivered: salesData.filter(sale => sale.status === 'delivered' || sale.status === 'confirmed_delivered').length,
         totalReturns: salesData.filter(sale => sale.status === 'returned' || sale.status === 'expected_return').length,
         totalRevenue: salesData
           .filter(sale => sale.status !== 'returned' && sale.status !== 'expected_return' && sale.status !== 'cancelled')
           .reduce((sum, sale) => sum + (sale.totalAmount || 0), 0)
       };
+      
+      // Store total for pagination
+      setTotalSalesCount(totalFromServer);
       
       setSalesStats(stats);
       
@@ -272,6 +300,12 @@ const Sales = () => {
     }
   }, [location.state, navigate, location.pathname]);
 
+  // Refetch when page or search changes for server-side pagination
+  useEffect(() => {
+    fetchSales();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, searchTerm]);
+
   // Removed auto-refresh to prevent UI disturbance
 
   // Handle card clicks
@@ -282,6 +316,9 @@ const Sales = () => {
   // Filter sales by time period
   const getFilteredSales = () => {
     let filteredSales = sales;
+    
+    // Note: Search filter is now handled server-side when searchTerm is provided
+    // Client-side search is only used when server-side pagination is not active
     
     // Apply time filter
     if (timeFilter !== 'all') {
@@ -347,12 +384,25 @@ const Sales = () => {
     return sortedSales;
   };
 
-  // Pagination logic
-  const filteredSales = getFilteredSales();
-  const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
+  // Pagination logic - for server-side pagination, use data as-is
+  // Client-side filtering is only applied if no server-side search is active
+  let filteredSales = sales;
+  if (!searchTerm.trim()) {
+    // Only apply client-side filters if not using server-side search
+    filteredSales = getFilteredSales();
+  }
+  
+  // For server-side pagination, use all current page results
+  // For client-side pagination (when no server search), slice results
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentSales = filteredSales.slice(indexOfFirstItem, indexOfLastItem);
+  const currentSales = searchTerm.trim() 
+    ? filteredSales // Server-side pagination already handled, use as-is
+    : filteredSales.slice(indexOfFirstItem, indexOfLastItem);
+  
+  const totalPages = searchTerm.trim() 
+    ? Math.ceil(totalSalesCount / itemsPerPage)
+    : Math.ceil(filteredSales.length / itemsPerPage);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -436,6 +486,35 @@ const Sales = () => {
     }
   };
 
+  // Update QC status
+  const handleQCStatusUpdate = async (saleId, qcStatus) => {
+    let loadingToast;
+    try {
+      loadingToast = toast.loading(`Updating QC status to ${qcStatus}...`);
+      
+      const response = await api.put(`/sales/${saleId}/qc-status`, { qcStatus });
+      
+      // Update local state
+      setSales(prevSales =>
+        prevSales.map(sale =>
+          sale._id === saleId ? { ...sale, qcStatus: qcStatus } : sale
+        )
+      );
+      
+      toast.dismiss(loadingToast);
+      toast.success(`QC status updated to ${qcStatus}!`);
+      
+      fetchSales(); // Refresh to get updated data
+    } catch (error) {
+      console.error('Error updating QC status:', error);
+      if (loadingToast) {
+        toast.dismiss(loadingToast);
+      }
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update QC status';
+      toast.error(errorMessage);
+    }
+  };
+
   // Change sales status
   const handleStatusChange = async (saleId, newStatus) => {
     let loadingToast;
@@ -490,6 +569,37 @@ const Sales = () => {
       }
       
       const errorMessage = error.response?.data?.error || error.message || 'Failed to update status';
+      toast.error(errorMessage);
+    }
+  };
+
+  // Handle View Sale
+  const handleViewSale = (sale) => {
+    setSelectedSale(sale);
+    setShowViewModal(true);
+  };
+
+  // Handle Edit Sale
+  const handleEditSale = (sale) => {
+    setEditingSaleId(sale._id);
+    navigate(`/sales/edit/${sale._id}`);
+  };
+
+  // Handle Delete Sale
+  const handleDeleteSale = async (saleId) => {
+    try {
+      const loadingToast = toast.loading('Deleting sales order...');
+      
+      await api.delete(`/sales/${saleId}`);
+      
+      toast.dismiss(loadingToast);
+      toast.success('Sales order deleted successfully!');
+      
+      // Refresh sales list
+      fetchSales();
+    } catch (error) {
+      console.error('Error deleting sales order:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete sales order';
       toast.error(errorMessage);
     }
   };
@@ -670,33 +780,35 @@ const Sales = () => {
         
         {/* Controls Section - Full width on mobile */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-          {/* View Toggle */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
-                viewMode === 'grid'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-              title="Grid View"
-            >
-              <Grid3X3 className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline text-sm font-medium">Grid</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
-                viewMode === 'list'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-              title="List View"
-            >
-              <List className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline text-sm font-medium">List</span>
-            </button>
-          </div>
+          {/* View Toggle - Hidden for agents */}
+          {user?.role !== 'agent' && (
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
+                  viewMode === 'list'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title="List View"
+              >
+                <List className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline text-sm font-medium">List</span>
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
+                  viewMode === 'table'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title="Table View"
+              >
+                <Table2 className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline text-sm font-medium">Table</span>
+              </button>
+            </div>
+          )}
           
           <button 
             onClick={handleRefresh}
@@ -707,14 +819,17 @@ const Sales = () => {
             <RefreshCw className={`h-4 w-4 mr-1 sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
-          <ExportButton
-            data={filteredSales}
-            filename="sales"
-            title="Sales Report"
-            exportFunction={handleExportSales}
-            variant="default"
-            buttonText="Export"
-          />
+          {/* Export Button - Hidden for agents */}
+          {user?.role !== 'agent' && (
+            <ExportButton
+              data={filteredSales}
+              filename="sales"
+              title="Sales Report"
+              exportFunction={handleExportSales}
+              variant="default"
+              buttonText="Export"
+            />
+          )}
           <button 
             className="btn-primary flex items-center flex-1 sm:flex-initial justify-center" 
             onClick={() => navigate('/sales/new')}
@@ -726,13 +841,15 @@ const Sales = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
-          onClick={() => handleCardClick('total')}
-        >
+      {/* Statistics Cards - Hidden for agents */}
+      {user?.role !== 'agent' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            onClick={() => handleCardClick('total')}
+          >
           <div className="flex items-center">
             <div className="p-3 bg-green-500 rounded-lg mr-4">
               <Truck className="h-6 w-6 text-white" />
@@ -794,13 +911,43 @@ const Sales = () => {
             </div>
           </div>
         </motion.div>
+        </div>
+      )}
+
+      {/* Search Filter */}
+      <div className="mt-6 mb-4">
+        <div className="relative max-w-md">
+          <input
+            type="text"
+            placeholder="Search by phone number or CN number..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1); // Reset to first page when searching
+            }}
+            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          />
+          <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setCurrentPage(1);
+              }}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              title="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Sales Records Section */}
       <div className="card p-6 mt-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <h2 className="text-lg font-semibold text-gray-900">
-            Sales Records ({filteredSales.length} of {sales.length} total)
+            Sales Records ({searchTerm.trim() ? `${filteredSales.length} of ${totalSalesCount}` : `${filteredSales.length} of ${totalSalesCount || sales.length}`} total)
           </h2>
           <div className="flex items-center space-x-4 flex-wrap">
             <select
@@ -868,7 +1015,391 @@ const Sales = () => {
           </div>
         ) : (
           <>
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6' : 'space-y-3 sm:space-y-4'}>
+            {viewMode === 'table' ? (
+              // Table View
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Order Number
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Timestamp
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Customer Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Phone Number
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Agent Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Product Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Quantity
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '250px', width: '300px' }}>
+                          Customer Address
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Notes
+                        </th>
+                        {/* CN Number column - Hidden for agents */}
+                        {user?.role !== 'agent' && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            CN Number
+                          </th>
+                        )}
+                        {/* Status column - Hidden for agents */}
+                        {user?.role !== 'agent' && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                        )}
+                        {/* QC Status column - Hidden for agents */}
+                        {user?.role !== 'agent' && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            QC Status
+                          </th>
+                        )}
+                        {/* Workflow Actions column - Hidden for agents */}
+                        {user?.role !== 'agent' && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Workflow Actions
+                          </th>
+                        )}
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentSales.map((sale) => (
+                        <tr key={sale._id} className="hover:bg-gray-50">
+                          {/* Order Number */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-gray-900">{sale.orderNumber}</div>
+                          </td>
+                          {/* Timestamp */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {sale.timestamp ? new Date(sale.timestamp).toLocaleString() : 
+                               sale.createdAt ? new Date(sale.createdAt).toLocaleString() : '-'}
+                            </div>
+                          </td>
+                          {/* Customer Name */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{sale.customerName || sale.customerInfo?.name || 'N/A'}</div>
+                          </td>
+                          {/* Phone Number */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{sale.customerInfo?.phone || '-'}</div>
+                          </td>
+                          {/* Agent Name */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {sale.agentName || sale.agent_name || sale.createdBy?.firstName || sale.createdBy?.email || '-'}
+                            </div>
+                          </td>
+                          {/* Product Name */}
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900">
+                              {sale.items && sale.items.length > 0 ? (
+                                sale.items.slice(0, 3).map((item, idx) => {
+                                  const productName = item.productId?.name || 'Unknown';
+                                  const variantName = item.variantName ? ` - ${item.variantName}` : '';
+                                  return (
+                                    <div key={idx}>
+                                      {idx > 0 && <hr className="my-2 border-gray-300" />}
+                                      <div className="text-sm text-gray-600 mb-1">
+                                        {productName}{variantName}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                              {sale.items?.length > 3 && (
+                                <div className="text-sm text-gray-500 mt-1">+{sale.items.length - 3} more</div>
+                              )}
+                            </div>
+                          </td>
+                          {/* Quantity */}
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900">
+                              {sale.items && sale.items.length > 0 ? (
+                                sale.items.slice(0, 3).map((item, idx) => {
+                                  return (
+                                    <div key={idx}>
+                                      {idx > 0 && <hr className="my-2 border-gray-300" />}
+                                      <div className="text-sm text-gray-600 mb-1">
+                                        {item.quantity}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                              {sale.items?.length > 3 && (
+                                <div className="text-sm text-gray-500 mt-1">-</div>
+                              )}
+                            </div>
+                          </td>
+                          {/* Price */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-green-600">
+                              Rs {sale.totalAmount?.toLocaleString() || '0'}
+                            </div>
+                          </td>
+                          {/* Customer Address */}
+                          <td className="px-6 py-4" style={{ minWidth: '250px', width: '300px' }}>
+                            <div className="text-sm text-gray-900">
+                              {sale.deliveryAddress ? (
+                                <>
+                                  {sale.deliveryAddress.street && <div>{sale.deliveryAddress.street}</div>}
+                                  {sale.deliveryAddress.city && <div className="text-xs text-gray-600">{sale.deliveryAddress.city}</div>}
+                                  {sale.deliveryAddress.country && <div className="text-xs text-gray-600">{sale.deliveryAddress.country}</div>}
+                                </>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </div>
+                          </td>
+                          {/* Notes */}
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 max-w-xs truncate" title={sale.notes}>
+                              {sale.notes || '-'}
+                            </div>
+                          </td>
+                          {/* CN Number - Hidden for agents */}
+                          {user?.role !== 'agent' && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{sale.customerInfo?.cnNumber || '-'}</div>
+                            </td>
+                          )}
+                          {/* Status - Hidden for agents */}
+                          {user?.role !== 'agent' && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                                sale.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                                sale.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
+                                sale.status === 'returned' ? 'bg-red-100 text-red-800' :
+                                sale.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
+                                sale.status === 'dispatched' || sale.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
+                                sale.status === 'confirmed' ? 'bg-cyan-100 text-cyan-800' :
+                                sale.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {sale.status === 'expected_return' ? 'Expected Return' : 
+                                 sale.status === 'confirmed_delivered' ? 'Confirmed Delivered' : 
+                                 sale.status || 'Pending'}
+                              </span>
+                            </td>
+                          )}
+                          {/* QC Status - Hidden for agents */}
+                          {user?.role !== 'agent' && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {sale.qcStatus ? (
+                                <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                                  sale.qcStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                                  sale.qcStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {sale.qcStatus}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-400">-</span>
+                              )}
+                            </td>
+                          )}
+                          {/* Workflow Actions - Hidden for agents */}
+                          {user?.role !== 'agent' && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              {/* QC Buttons - Only show for admin and manager, not for agents */}
+                              {user?.role !== 'agent' && sale.status === 'pending' && sale.qcStatus !== 'rejected' && (
+                                <>
+                                  {(!sale.qcStatus || sale.qcStatus === 'pending') && (
+                                    <>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleQCStatusUpdate(sale._id, 'approved');
+                                        }}
+                                        className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                        title="Approve QC"
+                                      >
+                                        <CheckCircle className="w-3 h-3 mr-1" />
+                                        QC Approved
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleQCStatusUpdate(sale._id, 'rejected');
+                                        }}
+                                        className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                        title="Reject QC"
+                                      >
+                                        <XCircle className="w-3 h-3 mr-1" />
+                                        QC Reject
+                                      </button>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                              
+                              {/* Dispatch Button - Only show for admin and manager, not for agents */}
+                              {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus === 'approved' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showConfirmation(sale, 'dispatch');
+                                  }}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                  title="Mark as Dispatched"
+                                >
+                                  <Truck className="w-3 h-3 mr-1" />
+                                  Dispatch
+                                </button>
+                              )}
+                              
+                              {/* Delivered Button - Only for admin and manager, not for agents */}
+                              {user?.role !== 'agent' && (sale.status === 'dispatch' || sale.status === 'dispatched') && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showConfirmation(sale, 'delivered');
+                                  }}
+                                  className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                  title="Mark as Delivered"
+                                >
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Delivered
+                                </button>
+                              )}
+                              
+                              {/* Confirm Delivered and Expected Return - Only for admin and manager, not for agents */}
+                              {user?.role !== 'agent' && sale.status === 'delivered' && (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      showConfirmation(sale, 'confirmed_delivered');
+                                    }}
+                                    className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                    title="Confirm Delivered - Move to confirmed delivered column in warehouse"
+                                  >
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Confirm Delivered
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      showConfirmation(sale, 'expected_return');
+                                    }}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                    title="Mark as Expected Return - Product will appear in Expected Returns module"
+                                  >
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    Expected Return
+                                  </button>
+                                </>
+                              )}
+                              
+                              {/* Return Received - Only for admin and manager, not for agents */}
+                              {user?.role !== 'agent' && sale.status === 'expected_return' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showConfirmation(sale, 'returnReceived');
+                                  }}
+                                  className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                  title="Confirm that return has been received back to warehouse"
+                                >
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Return Received
+                                </button>
+                              )}
+                              
+                              {sale.qcStatus === 'rejected' && (
+                                <span className="text-xs text-red-600 font-medium">QC Rejected</span>
+                              )}
+                              
+                              {sale.status === 'confirmed_delivered' && (
+                                <span className="text-xs text-green-600 font-medium">Confirmed Delivered</span>
+                              )}
+                              
+                              {sale.status === 'returned' && (
+                                <span className="text-xs text-green-600 font-medium">Return Completed</span>
+                              )}
+                              
+                              {sale.status !== 'pending' && sale.status !== 'dispatch' && sale.status !== 'dispatched' && sale.status !== 'delivered' && sale.status !== 'expected_return' && sale.qcStatus !== 'pending' && sale.qcStatus !== 'approved' && sale.qcStatus !== 'rejected' && (
+                                <span className="text-xs text-gray-400">-</span>
+                              )}
+                            </div>
+                            </td>
+                          )}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewSale(sale);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded transition-colors flex-shrink-0"
+                                title="View Sales Order Details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              {/* Edit button - Only for admin and manager, not for agents */}
+                              {user?.role !== 'agent' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditSale(sale);
+                                  }}
+                                  className="bg-yellow-600 hover:bg-yellow-700 text-white p-1.5 rounded transition-colors flex-shrink-0"
+                                  title="Edit Sales Order"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                              )}
+                              {/* Delete button - Only for admin and manager, not for agents */}
+                              {user?.role !== 'agent' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Are you sure you want to delete ${sale.orderNumber}? This action cannot be undone.`)) {
+                                      handleDeleteSale(sale._id);
+                                    }
+                                  }}
+                                  className="bg-red-600 hover:bg-red-700 text-white p-1.5 rounded transition-colors flex-shrink-0"
+                                  title="Delete Sales Order"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              // List View
+              <div className="space-y-3 sm:space-y-4">
               {currentSales.map((sale) => (
               <motion.div
                 key={sale._id}
@@ -899,6 +1430,50 @@ const Sales = () => {
                          sale.status}
                       </span>
                     </div>
+                    {/* View, Edit, Delete Buttons - Left Side */}
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewSale(sale);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                        title="View Sales Order Details"
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        View
+                      </button>
+                      {/* Edit button - Only for admin and manager, not for agents */}
+                      {user?.role !== 'agent' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditSale(sale);
+                          }}
+                          className="bg-yellow-600 hover:bg-yellow-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                          title="Edit Sales Order"
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          Edit
+                        </button>
+                      )}
+                      {/* Delete button - Only for admin and manager, not for agents */}
+                      {user?.role !== 'agent' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to delete ${sale.orderNumber}? This action cannot be undone.`)) {
+                              handleDeleteSale(sale._id);
+                            }
+                          }}
+                          className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                          title="Delete Sales Order"
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Delete
+                        </button>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm text-gray-600">
                       <div className="flex items-center">
                         <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
@@ -909,8 +1484,7 @@ const Sales = () => {
                         <span className="truncate">{sale.items?.length || 0} items</span>
                       </div>
                       <div className="flex items-center">
-                        <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                        <span className="font-medium truncate">PKR {sale.totalAmount?.toLocaleString()}</span>
+                        <span className="font-medium truncate">Rs {sale.totalAmount?.toLocaleString()}</span>
                       </div>
                       <div className="flex items-center">
                         {sale.status === 'delivered' ? <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-600 flex-shrink-0" /> :
@@ -955,8 +1529,8 @@ const Sales = () => {
                     
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-end">
-                      {/* Return Button - For Expected Returns */}
-                      {sale.status === 'expected_return' && (
+                      {/* Return Button - Only for admin and manager, not for agents */}
+                      {user?.role !== 'agent' && sale.status === 'expected_return' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -970,8 +1544,40 @@ const Sales = () => {
                         </button>
                       )}
                       
-                      {/* Status Change Buttons */}
-                      {sale.status === 'pending' && (
+                      {/* QC Buttons - Only show for admin and manager, not for agents */}
+                      {user?.role !== 'agent' && sale.status === 'pending' && sale.qcStatus !== 'rejected' && (
+                        <>
+                          {(!sale.qcStatus || sale.qcStatus === 'pending') && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleQCStatusUpdate(sale._id, 'approved');
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                title="Approve QC"
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                QC Approved
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleQCStatusUpdate(sale._id, 'rejected');
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                title="Reject QC"
+                              >
+                                <XCircle className="w-3 h-3 mr-1" />
+                                QC Reject
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )}
+                      
+                      {/* Dispatch Button - Only show for admin and manager, not for agents */}
+                      {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus === 'approved' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -985,7 +1591,8 @@ const Sales = () => {
                         </button>
                       )}
                       
-                      {(sale.status === 'dispatch' || sale.status === 'dispatched') && (
+                      {/* Delivered Button - Only for admin and manager, not for agents */}
+                      {user?.role !== 'agent' && (sale.status === 'dispatch' || sale.status === 'dispatched') && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -999,8 +1606,8 @@ const Sales = () => {
                         </button>
                       )}
                       
-                      
-                      {sale.status === 'delivered' && (
+                      {/* Confirm Delivered and Expected Return - Only for admin and manager, not for agents */}
+                      {user?.role !== 'agent' && sale.status === 'delivered' && (
                         <>
                           <button
                             onClick={(e) => {
@@ -1046,6 +1653,7 @@ const Sales = () => {
               </motion.div>
             ))}
             </div>
+            )}
           </>
         )}
 
@@ -1181,6 +1789,178 @@ const Sales = () => {
                   {confirmAction === 'returnReceived' && 'Confirm Return'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Sales Order Modal */}
+      {showViewModal && selectedSale && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+              <h3 className="text-lg font-semibold text-gray-900">Sales Order Details - {selectedSale.orderNumber}</h3>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Order Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Order Number</h4>
+                  <p className="text-lg font-semibold text-gray-900">{selectedSale.orderNumber}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Status</h4>
+                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                    selectedSale.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                    selectedSale.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
+                    selectedSale.status === 'returned' ? 'bg-red-100 text-red-800' :
+                    selectedSale.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
+                    selectedSale.status === 'dispatched' || selectedSale.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {selectedSale.status}
+                  </span>
+                  {selectedSale.qcStatus && (
+                    <span className={`ml-2 inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                      selectedSale.qcStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                      selectedSale.qcStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      QC: {selectedSale.qcStatus}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Order Date</h4>
+                  <p className="text-gray-900">{selectedSale.orderDate ? new Date(selectedSale.orderDate).toLocaleDateString() : new Date(selectedSale.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Total Amount</h4>
+                  <p className="text-lg font-semibold text-green-600">Rs {selectedSale.totalAmount?.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Customer Info */}
+              <div className="border-t pt-4">
+                <h4 className="text-md font-semibold text-gray-900 mb-3">Customer Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-500 mb-1">Name</h5>
+                    <p className="text-gray-900">{selectedSale.customerName || selectedSale.customerInfo?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-500 mb-1">Phone</h5>
+                    <p className="text-gray-900">{selectedSale.customerInfo?.phone || selectedSale.customerPhone || 'N/A'}</p>
+                  </div>
+                  {selectedSale.customerInfo?.cnNumber && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500 mb-1">CN Number</h5>
+                      <p className="text-gray-900">{selectedSale.customerInfo.cnNumber}</p>
+                    </div>
+                  )}
+                  {selectedSale.agentName && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500 mb-1">Agent Name</h5>
+                      <p className="text-gray-900">{selectedSale.agentName}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Delivery Address */}
+              {selectedSale.deliveryAddress && (
+                <div className="border-t pt-4">
+                  <h4 className="text-md font-semibold text-gray-900 mb-3">Delivery Address</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedSale.deliveryAddress.street && (
+                      <div className="md:col-span-2">
+                        <h5 className="text-sm font-medium text-gray-500 mb-1">Street</h5>
+                        <p className="text-gray-900">{selectedSale.deliveryAddress.street}</p>
+                      </div>
+                    )}
+                    {selectedSale.deliveryAddress.city && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500 mb-1">City</h5>
+                        <p className="text-gray-900">{selectedSale.deliveryAddress.city}</p>
+                      </div>
+                    )}
+                    {selectedSale.deliveryAddress.country && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-500 mb-1">Country</h5>
+                        <p className="text-gray-900">{selectedSale.deliveryAddress.country}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Items */}
+              <div className="border-t pt-4">
+                <h4 className="text-md font-semibold text-gray-900 mb-3">Order Items</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Variant</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {selectedSale.items?.map((item, index) => (
+                        <tr key={index}>
+                          <td className="px-4 py-3 text-sm text-gray-900">{item.productId?.name || 'Unknown Product'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{item.variantName || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{item.quantity}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">Rs {item.unitPrice?.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-900">Rs {(item.quantity * item.unitPrice).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50">
+                      <tr>
+                        <td colSpan="4" className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">Total:</td>
+                        <td className="px-4 py-3 text-sm font-bold text-green-600">Rs {selectedSale.totalAmount?.toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {selectedSale.notes && (
+                <div className="border-t pt-4">
+                  <h4 className="text-md font-semibold text-gray-900 mb-2">Notes</h4>
+                  <p className="text-gray-700">{selectedSale.notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3 p-6 border-t sticky bottom-0 bg-white">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setShowViewModal(false);
+                  handleEditSale(selectedSale);
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                Edit Order
+              </button>
             </div>
           </div>
         </div>

@@ -37,55 +37,21 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
   }, [isMobileOpen]);
 
   const getNavigationItems = () => {
-    const baseItems = [
+    // Show all modules to all roles - access will be controlled by route protection
+    const allItems = [
       { name: 'Dashboard', href: '/', icon: LayoutDashboard },
       { name: 'Products', href: '/products', icon: Package },
       { name: 'Warehouses', href: '/warehouses', icon: Warehouse },
+      { name: 'Purchases', href: '/purchases', icon: ShoppingCart },
+      { name: 'Sales', href: '/sales', icon: Truck },
+      { name: 'Suppliers', href: '/suppliers', icon: Building2 },
+      { name: 'Reports', href: '/reports', icon: BarChart3 },
+      { name: 'Finance', href: '/finance', icon: DollarSign },
+      { name: 'User Management', href: '/users', icon: Users },
+      { name: 'Settings', href: '/settings', icon: Settings }
     ];
 
-    // Add role-specific items
-    if (user?.role === 'admin' || user?.role === 'manager') {
-      baseItems.push(
-        { name: 'Purchases', href: '/purchases', icon: ShoppingCart },
-        { name: 'Sales', href: '/sales', icon: Truck },
-        { name: 'Suppliers', href: '/suppliers', icon: Building2 },
-        { name: 'Reports', href: '/reports', icon: BarChart3 }
-      );
-    }
-
-    // Add admin-only items
-    if (user?.role === 'admin') {
-      baseItems.push(
-        { name: 'Finance', href: '/finance', icon: DollarSign }
-      );
-    }
-
-    if (user?.role === 'employee') {
-      baseItems.push(
-        { name: 'My Tasks', href: '/tasks', icon: Activity },
-        { name: 'Inventory', href: '/inventory', icon: Package },
-        { name: 'Reports', href: '/reports', icon: BarChart3 }
-      );
-    }
-
-    // Add admin-only routes
-    if (user?.role === 'admin') {
-      baseItems.push(
-        { name: 'User Management', href: '/users', icon: Users },
-        { name: 'Settings', href: '/settings', icon: Settings }
-      );
-    }
-
-    // Managers don't get user management access at all
-
-    // Add admin and manager routes
-    // if (user?.role === 'admin' || user?.role === 'manager') {
-    //   baseItems.push(
-    //     { name: 'Suppliers', href: '/suppliers', icon: Building2 }
-    //   );
-    // }
-
-    return baseItems;
+    return allItems;
   };
 
   const navigation = getNavigationItems();

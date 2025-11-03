@@ -11,7 +11,7 @@ const RegisterForm = () => {
     lastName: '',
     email: '',
     password: '',
-    role: 'employee'
+    role: 'agent'
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -107,7 +107,7 @@ const RegisterForm = () => {
           lastName: '',
           email: '',
           password: '',
-          role: 'employee'
+          role: 'agent'
         });
       }
     } catch (error) {
@@ -245,7 +245,7 @@ const RegisterForm = () => {
                 onChange={handleChange}
                 required
               >
-                <option value="employee">Employee</option>
+                <option value="agent">Agent</option>
                 <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
               </select>

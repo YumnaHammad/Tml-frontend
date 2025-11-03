@@ -144,16 +144,10 @@ const LoginForm = () => {
           </form>
         </div>
 
-        {/* Register Link */}
+        {/* Registration disabled */}
         <div className="text-center">
-          <p className="text-gray-600">
-            Don't have an account?{' '}
-            <Link
-              to="/register"
-              className="text-primary-600 hover:text-primary-500 font-medium"
-            >
-              Create one here
-            </Link>
+          <p className="text-sm text-gray-500">
+            New user registration is currently disabled. Contact administrator for access.
           </p>
         </div>
 

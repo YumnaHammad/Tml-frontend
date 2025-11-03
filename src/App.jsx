@@ -1,12 +1,12 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Layout, ProtectedRoute, Dashboard, LoginForm } from './modules';
 import RoleBasedRoute from './components/RoleBasedRoute';
 import RoleBasedDashboard from './components/RoleBasedDashboard';
 import Login from './pages/Login';
-import RegisterForm from './modules/auth/components/RegisterForm';
+// RegisterForm removed - registration is disabled
 import Products from './pages/Products';
 import Warehouses from './pages/Warehouses';
 import Sales from './pages/Sales';
@@ -32,7 +32,16 @@ import Finance from './pages/Finance';
 import Unauthorized from './pages/Unauthorized';
 
 function AppRoutes() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -40,9 +49,24 @@ function AppRoutes() {
         path="/login" 
         element={user ? <Navigate to="/" replace /> : <Login />} 
       />
+      {/* Registration disabled - no new users allowed */}
       <Route 
         path="/register" 
-        element={user ? <Navigate to="/" replace /> : <RegisterForm />} 
+        element={
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-gray-100">
+            <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Registration Disabled</h1>
+              <p className="text-gray-600 mb-4">New user registration is currently disabled. Only authorized users can access this system.</p>
+              <p className="text-sm text-gray-500 mb-6">Please contact your administrator if you need access.</p>
+              <Link 
+                to="/login" 
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                ← Back to Sign In
+              </Link>
+            </div>
+          </div>
+        } 
       />
       <Route 
         path="/" 
@@ -56,7 +80,7 @@ function AppRoutes() {
         <Route 
           index 
           element={
-            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
               <RoleBasedDashboard />
             </RoleBasedRoute>
           } 
@@ -65,20 +89,103 @@ function AppRoutes() {
         {/* Regular Dashboard for other roles */}
         <Route 
           path="dashboard" 
-          element={<Dashboard />} 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <Dashboard />
+            </RoleBasedRoute>
+          } 
         />
         
-        {/* Core Modules */}
-        <Route path="products" element={<Products />} />
-        <Route path="products/new" element={<Products />} />
-        <Route path="products/:id/edit" element={<Products />} />
-        <Route path="warehouses" element={<Warehouses />} />
-        <Route path="warehouses/new" element={<Warehouses />} />
-        <Route path="warehouses/:id/add-stock" element={<AddStockPage />} />
-        <Route path="sales" element={<Sales />} />
-        <Route path="sales/new" element={<Sales />} />
-        <Route path="purchases" element={<Purchases />} />
-        <Route path="purchases/new" element={<Purchases />} />
+        {/* Core Modules - All roles can access */}
+        <Route 
+          path="products" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <Products />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="products/new" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+              <Products />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="products/:id/edit" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+              <Products />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="warehouses" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <Warehouses />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="warehouses/new" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+              <Warehouses />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="warehouses/:id/add-stock" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+              <AddStockPage />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="sales" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <Sales />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="sales/new" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <Sales />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="sales/edit/:id" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager']}>
+              <SalesFormPage />
+            </RoleBasedRoute>
+          } 
+        />
+        {/* Purchases - Admin only (managers cannot access) */}
+        <Route 
+          path="purchases" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin']}>
+              <Purchases />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="purchases/new" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin']}>
+              <Purchases />
+            </RoleBasedRoute>
+          } 
+        />
         <Route 
           path="finance" 
           element={
@@ -89,7 +196,14 @@ function AppRoutes() {
         />
         
         {/* Search */}
-        <Route path="search" element={<SearchResults />} />
+        <Route 
+          path="search" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <SearchResults />
+            </RoleBasedRoute>
+          } 
+        />
         
         {/* Reports */}
         <Route 
@@ -206,6 +320,42 @@ function AppRoutes() {
 }
 
 function App() {
+  useEffect(() => {
+    // Clear "0" from number inputs on focus
+    const handleNumberInputFocus = (e) => {
+      const target = e.target;
+      if (target && target.type === 'number') {
+        const value = target.value;
+        if (value === '0' || value === '0.0' || value === '0.00') {
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype,
+            'value'
+          )?.set;
+          
+          if (nativeInputValueSetter) {
+            nativeInputValueSetter.call(target, '');
+            const inputEvent = new Event('input', { bubbles: true });
+            const changeEvent = new Event('change', { bubbles: true });
+            target.dispatchEvent(inputEvent);
+            target.dispatchEvent(changeEvent);
+          } else {
+            target.value = '';
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      }
+    };
+
+    // Add event listeners
+    document.addEventListener('focusin', handleNumberInputFocus, true);
+    
+    return () => {
+      // Cleanup
+      document.removeEventListener('focusin', handleNumberInputFocus, true);
+    };
+  }, []);
+
   return (
     <Router>
       <AuthProvider>

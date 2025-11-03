@@ -1156,7 +1156,7 @@ const AdvancedAdminDashboard = () => {
                       data={[
                         { name: 'Admin', value: Math.floor(dashboardData.summary.totalUsers * 0.1) },
                         { name: 'Manager', value: Math.floor(dashboardData.summary.totalUsers * 0.2) },
-                        { name: 'Employee', value: Math.floor(dashboardData.summary.totalUsers * 0.7) }
+                        { name: 'Agent', value: Math.floor(dashboardData.summary.totalUsers * 0.7) }
                       ]}
                       cx="50%"
                       cy="50%"

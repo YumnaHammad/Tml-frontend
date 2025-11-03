@@ -224,7 +224,7 @@ const EmployeeDashboard = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Employee Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Agent Dashboard</h1>
           <p className="text-gray-600 mt-2">Your tasks and daily operations</p>
         </div>
         <div className="flex items-center space-x-2">

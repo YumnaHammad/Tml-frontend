@@ -16,7 +16,7 @@ const RoleBasedDashboard = () => {
       return <AdvancedAdminDashboard />;
     case 'manager':
       return <ManagerDashboard />;
-    case 'employee':
+    case 'agent':
       return <EmployeeDashboard />;
     default:
       return <EmployeeDashboard />;

@@ -1575,7 +1575,7 @@ const AdvancedUserManagement = () => {
                           selectedUser.role === 'manager' ? 'bg-orange-100 text-orange-800' :
                           'bg-blue-100 text-blue-800'
                         }`}>
-                          {selectedUser.role ? selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1) : 'Employee'}
+                          {selectedUser.role ? selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1) : 'Agent'}
                         </span>
                       </div>
                     </div>

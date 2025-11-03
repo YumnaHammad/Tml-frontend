@@ -2,14 +2,24 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const getBaseURL = () => {
-  // Check for environment variable first, then fallback to production URL
+  // In development, use relative URL to leverage Vite proxy (avoids CORS)
+  // In production, use the full Vercel backend URL
+  const isDevelopment = import.meta.env.DEV;
+  
+  if (isDevelopment) {
+    // Use relative URL - Vite proxy will forward to Vercel backend
+    // This avoids CORS issues since request appears to come from same origin
+    return '/api';
+  }
+  
+  // Production: Check for environment variable first, but reject localhost:5000
   const apiUrl = import.meta.env.VITE_API_URL;
   
-  if (apiUrl) {
+  if (apiUrl && !apiUrl.includes('localhost:5000')) {
     return apiUrl.endsWith('/api') ? apiUrl : `${apiUrl}/api`;
   }
   
-  // Production fallback
+  // Production fallback - Vercel backend
   return 'https://tml-backend.vercel.app/api';
 };
 

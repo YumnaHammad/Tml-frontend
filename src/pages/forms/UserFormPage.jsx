@@ -15,7 +15,7 @@ const UserFormPage = () => {
     lastName: '',
     email: '',
     password: '',
-    role: 'employee'
+    role: 'agent'
   });
 
   useEffect(() => {
@@ -216,7 +216,7 @@ const UserFormPage = () => {
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="employee">Employee</option>
+                  <option value="agent">Agent</option>
                   <option value="manager">Manager</option>
                   <option value="admin">Admin</option>
                 </select>
@@ -228,7 +228,7 @@ const UserFormPage = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="text-sm font-semibold text-blue-900 mb-2">Role Permissions</h4>
             <ul className="text-sm text-blue-800 space-y-1">
-              <li><strong>Employee:</strong> Basic access to view and manage inventory</li>
+              <li><strong>Agent:</strong> Basic access to view and manage inventory</li>
               <li><strong>Manager:</strong> Can manage products, sales, purchases, and suppliers</li>
               <li><strong>Admin:</strong> Full system access including user management and settings</li>
             </ul>

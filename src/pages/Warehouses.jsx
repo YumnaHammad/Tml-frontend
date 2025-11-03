@@ -201,6 +201,12 @@ const Warehouses = () => {
   };
 
   const confirmDeleteWarehouse = (warehouse) => {
+    // Only admin can delete warehouses
+    if (!user || user.role !== 'admin') {
+      toast.error('Only admins can delete warehouses');
+      return;
+    }
+    
     console.log('🗑️ DELETE BUTTON CLICKED:', warehouse.name);
     setWarehouseToDeleteConfirm(warehouse);
     setShowConfirmModal(true);
@@ -208,6 +214,14 @@ const Warehouses = () => {
 
   const handleConfirmDelete = async () => {
     if (!warehouseToDeleteConfirm || deleting) return;
+
+    // Only admin can delete warehouses
+    if (!user || user.role !== 'admin') {
+      toast.error('Only admins can delete warehouses');
+      setShowConfirmModal(false);
+      setWarehouseToDeleteConfirm(null);
+      return;
+    }
 
     setDeleting(true);
     setShowConfirmModal(false);
@@ -254,8 +268,9 @@ const Warehouses = () => {
       return;
     }
     
-    if (!hasAnyRole(['admin', 'manager'])) {
-      toast.error('Only admins and managers can delete warehouses');
+    // Only admin can delete warehouses
+    if (user.role !== 'admin') {
+      toast.error('Only admins can delete warehouses');
       return;
     }
     
@@ -403,7 +418,8 @@ const Warehouses = () => {
     }
   };
 
-  if (selectedWarehouse) {
+  // For agents, only show products list, not warehouse details
+  if (selectedWarehouse && user?.role !== 'agent') {
     return (
       <div className="space-y-6">
         {/* Header */}
@@ -1236,29 +1252,34 @@ const Warehouses = () => {
                 Add Stock
               </button>
               <div className="flex space-x-2">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fetchWarehouseDetails(warehouse._id);
-                  }}
-                  className="text-blue-600 hover:text-blue-800 p-1"
-                  title="View Details"
-                >
-                  <Eye className="h-4 w-4" />
-                </button>
-                <button 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    confirmDeleteWarehouse(warehouse);
-                  }}
-                  className="text-red-600 hover:text-red-800 p-1 bg-red-50 hover:bg-red-100 rounded transition-colors"
-                  title="Delete Warehouse"
-                  type="button"
-                  disabled={deleting}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {/* View Details button - Hidden for agents */}
+                {user?.role !== 'agent' && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fetchWarehouseDetails(warehouse._id);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 p-1"
+                    title="View Details"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
+                {user?.role === 'admin' && (
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      confirmDeleteWarehouse(warehouse);
+                    }}
+                    className="text-red-600 hover:text-red-800 p-1 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                    title="Delete Warehouse"
+                    type="button"
+                    disabled={deleting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
             </div>
           </div>
         </motion.div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import Unauthorized from '../pages/Unauthorized';
 
 const RoleBasedRoute = ({ 
   children, 
@@ -20,7 +21,8 @@ const RoleBasedRoute = ({
     : allowedRoles.includes(user.role);
 
   if (!hasRequiredRole) {
-    return <Navigate to={redirectTo} replace />;
+    // Show access denied page directly instead of redirecting
+    return <Unauthorized />;
   }
 
   return children;

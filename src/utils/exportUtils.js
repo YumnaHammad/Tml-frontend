@@ -285,7 +285,7 @@ export const exportUsers = (users, format = 'excel') => {
     'Last Name': user.lastName || 'User',
     'Email': user.email || 'No email',
     'Phone': user.phone || 'N/A',
-    'Role': user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Employee',
+    'Role': user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Agent',
     'Department': user.department || 'N/A',
     'Position': user.position || 'N/A',
     'Status': user.isActive ? 'Active' : 'Inactive',

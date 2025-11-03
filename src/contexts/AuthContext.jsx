@@ -25,6 +25,13 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
+  };
+
   // Check if user is logged in on app start
   useEffect(() => {
     const checkAuth = async () => {
@@ -42,6 +49,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const login = async (email, password) => {
@@ -67,13 +75,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
-  };
-
   const isAdmin = () => {
     return user?.role === 'admin';
   };
@@ -82,8 +83,8 @@ export const AuthProvider = ({ children }) => {
     return user?.role === 'manager';
   };
 
-  const isEmployee = () => {
-    return user?.role === 'employee';
+  const isAgent = () => {
+    return user?.role === 'agent';
   };
 
   const hasRole = (role) => {
@@ -102,7 +103,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAdmin,
     isManager,
-    isEmployee,
+    isAgent,
     hasRole,
     hasAnyRole
   };
