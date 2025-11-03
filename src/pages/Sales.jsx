@@ -47,7 +47,7 @@ const Sales = () => {
       setRefreshing(true);
       // Use server-side pagination - fetch larger page size but still paginated
       // For stats, we need total count, so fetch current page + get total from response
-      const pageSize = 100; // Reasonable page size for initial load
+      const pageSize = itemsPerPage; // Keep server page size in sync with UI
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: pageSize.toString()
@@ -392,17 +392,10 @@ const Sales = () => {
     filteredSales = getFilteredSales();
   }
   
-  // For server-side pagination, use all current page results
-  // For client-side pagination (when no server search), slice results
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentSales = searchTerm.trim() 
-    ? filteredSales // Server-side pagination already handled, use as-is
-    : filteredSales.slice(indexOfFirstItem, indexOfLastItem);
-  
-  const totalPages = searchTerm.trim() 
-    ? Math.ceil(totalSalesCount / itemsPerPage)
-    : Math.ceil(filteredSales.length / itemsPerPage);
+  // Server-side pagination: the backend already returns one page
+  // Do not slice on the client; just use the fetched page
+  const currentSales = filteredSales;
+  const totalPages = Math.ceil((totalSalesCount || filteredSales.length) / itemsPerPage);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -1675,9 +1668,18 @@ const Sales = () => {
               <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700">
-                    Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-                    <span className="font-medium">{Math.min(indexOfLastItem, filteredSales.length)}</span> of{' '}
-                    <span className="font-medium">{filteredSales.length}</span> results
+                    {(() => {
+                      const start = (currentPage - 1) * itemsPerPage + 1;
+                      const total = totalSalesCount || filteredSales.length;
+                      const end = Math.min(currentPage * itemsPerPage, total);
+                      return (
+                        <>
+                          Showing <span className="font-medium">{total === 0 ? 0 : start}</span> to{' '}
+                          <span className="font-medium">{end}</span> of{' '}
+                          <span className="font-medium">{total}</span> results
+                        </>
+                      );
+                    })()}
                   </p>
                 </div>
                 <div>
