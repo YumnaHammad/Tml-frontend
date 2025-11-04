@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Truck, Plus, TrendingUp, DollarSign, Calendar, Clock, Filter, RefreshCw, CheckCircle, XCircle, Download, Package, RotateCcw, ArrowRight, X, List, Eye, Edit, Trash2, Table2 } from 'lucide-react';
+import { Truck, Plus, TrendingUp, DollarSign, Calendar, Clock, Filter, RefreshCw, CheckCircle, XCircle, Download, Package, RotateCcw, ArrowRight, X, List, Eye, Edit, Trash2, Table2, Phone } from 'lucide-react';
 import CenteredLoader from '../components/CenteredLoader';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SalesFormPage from './forms/SalesFormPage';
@@ -28,6 +28,10 @@ const Sales = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const [editingSaleId, setEditingSaleId] = useState(null);
+  // Duplicate phone numbers modal state
+  const [showDuplicatePhoneModal, setShowDuplicatePhoneModal] = useState(false);
+  const [duplicatePhones, setDuplicatePhones] = useState([]);
+  const [loadingDuplicates, setLoadingDuplicates] = useState(false);
   const [timeFilter, setTimeFilter] = useState('all'); // all, day, week, month
   const [sortFilter, setSortFilter] = useState('newest'); // newest, oldest, amount_high, amount_low, status
   const [selectedDate, setSelectedDate] = useState(''); // For calendar date picker
@@ -426,6 +430,26 @@ const Sales = () => {
     fetchSales();
   };
 
+  // Fetch duplicate phone numbers
+  const fetchDuplicatePhones = async () => {
+    try {
+      setLoadingDuplicates(true);
+      const response = await api.get('/sales/check-duplicate-phones?limit=2000');
+      setDuplicatePhones(response.data.duplicates || []);
+      setShowDuplicatePhoneModal(true);
+      if (response.data.duplicates.length === 0) {
+        toast.success('No duplicate phone numbers found!');
+      } else {
+        toast.success(`Found ${response.data.duplicates.length} duplicate phone numbers`);
+      }
+    } catch (error) {
+      console.error('Error fetching duplicate phone numbers:', error);
+      toast.error('Failed to fetch duplicate phone numbers');
+    } finally {
+      setLoadingDuplicates(false);
+    }
+  };
+
   // Export sales data
   const handleExportSales = async (format = 'excel') => {
     const { exportSales } = await import('../utils/exportUtils');
@@ -811,6 +835,15 @@ const Sales = () => {
           >
             <RefreshCw className={`h-4 w-4 mr-1 sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button 
+            onClick={fetchDuplicatePhones}
+            disabled={loadingDuplicates}
+            className="flex items-center px-3 py-1.5 sm:py-2 text-orange-600 hover:text-orange-900 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors text-sm whitespace-nowrap disabled:opacity-50"
+            title="Check for duplicate phone numbers"
+          >
+            <Phone className={`h-4 w-4 mr-1 sm:mr-2 ${loadingDuplicates ? 'animate-pulse' : ''}`} />
+            <span className="hidden sm:inline">Duplicates</span>
           </button>
           {/* Export Button - Hidden for agents */}
           {user?.role !== 'agent' && (
@@ -1958,6 +1991,162 @@ const Sales = () => {
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
               >
                 Edit Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Phone Numbers Modal */}
+      {showDuplicatePhoneModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Duplicate Phone Numbers</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Found {duplicatePhones.length} phone number(s) with multiple orders
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDuplicatePhoneModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {loadingDuplicates ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+                  <span className="ml-3 text-gray-600">Loading duplicate phone numbers...</span>
+                </div>
+              ) : duplicatePhones.length === 0 ? (
+                <div className="text-center py-12">
+                  <Phone className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No duplicate phone numbers found!</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {duplicatePhones.map((duplicate, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Phone className="h-5 w-5 text-orange-600" />
+                            <h4 className="text-lg font-semibold text-gray-900">{duplicate.phoneNumber}</h4>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              duplicate.isSameCustomer 
+                                ? 'bg-blue-100 text-blue-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {duplicate.isSameCustomer ? 'Same Customer' : `${duplicate.uniqueCustomers} Different Customers`}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">{duplicate.message}</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">Total Orders:</span>
+                              <span className="ml-2 font-semibold text-gray-900">{duplicate.totalOrders}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Total Amount:</span>
+                              <span className="ml-2 font-semibold text-green-600">Rs {duplicate.totalAmount?.toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Avg Order:</span>
+                              <span className="ml-2 font-semibold text-gray-900">Rs {Math.round(duplicate.averageOrderAmount)?.toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Customers:</span>
+                              <span className="ml-2 font-semibold text-gray-900">{duplicate.uniqueCustomers}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Customers List */}
+                      {duplicate.customers && duplicate.customers.length > 0 && (
+                        <div className="mb-4">
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">Customers:</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {duplicate.customers.map((customer, idx) => (
+                              <span key={idx} className="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700">
+                                {customer.name} ({customer.orderCount} orders)
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Orders List */}
+                      <div className="mt-4">
+                        <h5 className="text-sm font-medium text-gray-700 mb-3">Orders:</h5>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order #</th>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {duplicate.orders.map((order, orderIdx) => (
+                                <tr key={orderIdx} className="hover:bg-gray-50">
+                                  <td className="px-3 py-2 text-sm font-medium text-blue-600 cursor-pointer" 
+                                      onClick={() => {
+                                        const sale = sales.find(s => s.orderNumber === order.orderNumber);
+                                        if (sale) {
+                                          setSelectedSale(sale);
+                                          setShowDuplicatePhoneModal(false);
+                                          setShowViewModal(true);
+                                        }
+                                      }}>
+                                    {order.orderNumber}
+                                  </td>
+                                  <td className="px-3 py-2 text-sm text-gray-900">{order.customerName}</td>
+                                  <td className="px-3 py-2 text-sm text-gray-600">
+                                    {new Date(order.timestamp).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-3 py-2 text-sm font-semibold text-green-600">
+                                    Rs {order.totalAmount?.toLocaleString()}
+                                  </td>
+                                  <td className="px-3 py-2 text-sm">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                                      order.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
+                                      order.status === 'returned' ? 'bg-red-100 text-red-800' :
+                                      order.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
+                                      order.status === 'dispatched' || order.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
+                                      'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {order.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-sm text-gray-600">{order.agentName || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3 p-6 border-t sticky bottom-0 bg-white">
+              <button
+                onClick={() => setShowDuplicatePhoneModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+              >
+                Close
               </button>
             </div>
           </div>
