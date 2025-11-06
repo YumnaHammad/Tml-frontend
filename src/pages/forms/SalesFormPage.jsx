@@ -110,9 +110,12 @@ const SalesFormPage = ({ onSuccess }) => {
 
   const fetchProducts = async () => {
     try {
-      // Fetch ALL products first
+      // Fetch ALL products first (including inactive ones)
       const productsResponse = await api.get('/products');
       const allProducts = productsResponse.data.products || [];
+      
+      // Debug: Log all product names to help identify missing products
+      console.log('All products fetched:', allProducts.map(p => p.name));
       
       // Fetch warehouses to get ACTUAL purchased stock (with variants)
       const warehousesResponse = await api.get('/warehouses');
@@ -128,62 +131,74 @@ const SalesFormPage = ({ onSuccess }) => {
             const totalStock = (stockItem.quantity || 0);
             const reserved = (stockItem.reservedQuantity || 0);
             const delivered = (stockItem.deliveredQuantity || 0);
-            const available = totalStock - reserved - delivered;
+            const confirmedDelivered = (stockItem.confirmedDeliveredQuantity || 0);
+            const available = totalStock - reserved - delivered - confirmedDelivered;
             
-            // Only include items that have available stock
-            if (available > 0) {
-              const productId = stockItem.productId?._id || stockItem.productId;
-              const variantId = stockItem.variantId || 'no-variant';
-              const productName = stockItem.productId?.name || 'Unknown Product';
-              const variantName = stockItem.variantDetails?.name || stockItem.variantName || 'no-variant';
+            // Include ALL items in the map, even if available is 0 or negative
+            // This ensures all products with stock records appear in the dropdown
+            const productId = stockItem.productId?._id || stockItem.productId;
+            const variantId = stockItem.variantId || 'no-variant';
+            const productName = stockItem.productId?.name || 'Unknown Product';
+            const variantName = stockItem.variantDetails?.name || stockItem.variantName || 'no-variant';
+            
+            if (productId) {
+              // Keep both key formats for compatibility
+              const idKey = `${productId}-${variantId}`;
+              const nameKey = `${productName}-${variantName}`;
               
-              if (productId) {
-                // Keep both key formats for compatibility
-                const idKey = `${productId}-${variantId}`;
-                const nameKey = `${productName}-${variantName}`;
-                
-                const currentStockById = variantStockMap.get(idKey) || 0;
-                variantStockMap.set(idKey, currentStockById + available);
-                
-                const currentStockByName = variantStockByNameMap.get(nameKey) || 0;
-                variantStockByNameMap.set(nameKey, currentStockByName + available);
-              }
+              const currentStockById = variantStockMap.get(idKey) || 0;
+              variantStockMap.set(idKey, currentStockById + Math.max(0, available));
+              
+              const currentStockByName = variantStockByNameMap.get(nameKey) || 0;
+              variantStockByNameMap.set(nameKey, currentStockByName + Math.max(0, available));
             }
           });
         }
       });
       
-      // Filter products and their variants based on actual stock
-      const purchasedProducts = allProducts.map(product => {
+      // Show all products, but mark stock availability for each variant/product
+      const productsWithStockInfo = allProducts.map(product => {
         if (product.hasVariants && product.variants && product.variants.length > 0) {
-          // Filter variants to only show those with stock
-          const variantsWithStock = product.variants.filter(variant => {
+          // Show all variants, but mark which ones have stock
+          const variantsWithStockInfo = product.variants.map(variant => {
             const key = `${product._id}-${variant._id || variant.sku}`;
-            return variantStockMap.has(key) && variantStockMap.get(key) > 0;
+            const availableStock = variantStockMap.get(key) || 0;
+            return {
+              ...variant,
+              availableStock // Add stock info to variant
+            };
           });
           
-          // Only include product if it has variants with stock
-          if (variantsWithStock.length > 0) {
-            return {
-              ...product,
-              variants: variantsWithStock // ONLY purchased variants
-            };
-          }
-          return null;
+          return {
+            ...product,
+            variants: variantsWithStockInfo // Show all variants with stock info
+          };
         } else {
-          // No variants - check if product itself has stock
+          // No variants - add stock info to product
           const key = `${product._id}-no-variant`;
-          if (variantStockMap.has(key) && variantStockMap.get(key) > 0) {
-            return product;
-          }
-          return null;
+          const availableStock = variantStockMap.get(key) || 0;
+          return {
+            ...product,
+            availableStock // Add stock info to product
+          };
         }
-      }).filter(Boolean); // Remove nulls
+      });
       
-      setProducts(purchasedProducts);
+      setProducts(productsWithStockInfo);
       
-      if (purchasedProducts.length === 0) {
-        toast.info('No products in stock. Please purchase products first.', {
+      // Debug: Log products that will be shown in dropdown
+      console.log('Products in dropdown:', productsWithStockInfo.map(p => `${p.name} (Stock: ${p.availableStock || 0})`));
+      
+      // Show info if no products have stock, but still allow selection
+      const productsWithStock = productsWithStockInfo.filter(product => {
+        if (product.hasVariants && product.variants) {
+          return product.variants.some(v => (v.availableStock || 0) > 0);
+        }
+        return (product.availableStock || 0) > 0;
+      });
+      
+      if (productsWithStock.length === 0 && productsWithStockInfo.length > 0) {
+        toast.info('No products currently in stock, but you can still create orders.', {
           duration: 4000,
           icon: '📦'
         });
@@ -888,11 +903,16 @@ const SalesFormPage = ({ onSuccess }) => {
                           } ${isEditing ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
                         >
                           <option value="">Select Product</option>
-                          {products.map(product => (
-                            <option key={product._id} value={product._id}>
-                              {product.name} ({product.sku})
-                            </option>
-                          ))}
+                          {products.map(product => {
+                            const stockInfo = product.hasVariants 
+                              ? '' // Variants will show their own stock
+                              : ` - Stock: ${product.availableStock || 0}`;
+                            return (
+                              <option key={product._id} value={product._id}>
+                                {product.name} ({product.sku}){stockInfo}
+                              </option>
+                            );
+                          })}
                         </select>
                         {validationErrors[`item_${index}_productId`] && (
                           <p className="mt-1 text-sm text-red-600">
@@ -916,11 +936,16 @@ const SalesFormPage = ({ onSuccess }) => {
                             } ${isEditing ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
                           >
                             <option value="">Select Variant</option>
-                            {getProductVariants(item.productId).map(variant => (
+                            {getProductVariants(item.productId).map(variant => {
+                              const stockInfo = variant.availableStock !== undefined 
+                                ? ` - Stock: ${variant.availableStock || 0}` 
+                                : '';
+                              return (
                               <option key={variant._id || variant.sku} value={variant._id || variant.sku}>
-                                {variant.name} - PKR {variant.sellingPrice}
+                                {variant.name} - PKR {variant.sellingPrice}{stockInfo}
                               </option>
-                            ))}
+                              );
+                            })}
                           </select>
                           {validationErrors[`item_${index}_variantId`] && (
                             <p className="mt-1 text-sm text-red-600">
