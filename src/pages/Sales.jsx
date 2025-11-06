@@ -32,14 +32,14 @@ const Sales = () => {
   const [showDuplicatePhoneModal, setShowDuplicatePhoneModal] = useState(false);
   const [duplicatePhones, setDuplicatePhones] = useState([]);
   const [loadingDuplicates, setLoadingDuplicates] = useState(false);
-  const [timeFilter, setTimeFilter] = useState('all'); // all, day, week, month
+  const [timeFilter, setTimeFilter] = useState('day'); // all, day, week, month - default to 'day' (today)
   const [sortFilter, setSortFilter] = useState('newest'); // newest, oldest, amount_high, amount_low, status
   const [selectedDate, setSelectedDate] = useState(''); // For calendar date picker
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState('table'); // 'list' or 'table'
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState(''); // Search filter for phone number and CN number
+  const [searchTerm, setSearchTerm] = useState(''); // Search filter for phone number, CN number, and agent name
   const [totalSalesCount, setTotalSalesCount] = useState(0); // Total sales count from server
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,17 +49,61 @@ const Sales = () => {
   const fetchSales = async () => {
     try {
       setRefreshing(true);
-      // Use server-side pagination - fetch larger page size but still paginated
-      // For stats, we need total count, so fetch current page + get total from response
-      const pageSize = itemsPerPage; // Keep server page size in sync with UI
+      // When searching OR "All Time" is selected, show ALL results (no pagination limit)
+      // Otherwise, use normal pagination
+      const isSearching = searchTerm.trim().length > 0;
+      const isAllTime = timeFilter === 'all';
+      const showAllResults = isSearching || isAllTime;
+      
+      const pageSize = showAllResults ? 10000 : itemsPerPage; // Show all results when searching or "All Time"
       const params = new URLSearchParams({
-        page: currentPage.toString(),
+        page: showAllResults ? '1' : currentPage.toString(), // Always page 1 when showing all results
         limit: pageSize.toString()
       });
       
       // Add search to backend if provided
       if (searchTerm.trim()) {
         params.append('search', searchTerm.trim());
+      }
+      
+      // Add time filter to backend
+      if (timeFilter !== 'all') {
+        const now = new Date();
+        let startDate;
+        
+        switch (timeFilter) {
+          case 'day':
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            break;
+          case 'week':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+          case 'month':
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case '90days':
+            startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+            break;
+          case 'year':
+            startDate = new Date(now.getFullYear(), 0, 1);
+            break;
+          case 'custom':
+            if (selectedDate) {
+              startDate = new Date(selectedDate);
+              startDate.setHours(0, 0, 0, 0);
+              const endDate = new Date(selectedDate);
+              endDate.setHours(23, 59, 59, 999);
+              params.append('startDate', startDate.toISOString());
+              params.append('endDate', endDate.toISOString());
+            }
+            break;
+          default:
+            break;
+        }
+        
+        if (timeFilter !== 'custom' && startDate) {
+          params.append('startDate', startDate.toISOString());
+        }
       }
       
       const response = await api.get(`/sales?${params.toString()}`);
@@ -78,9 +122,22 @@ const Sales = () => {
         localStorage.removeItem('tempSales');
       }
       
-      // Sort by creation date - newest first
-      const sortedSales = salesData.sort((a, b) => {
-        return new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id);
+      // Apply client-side sorting based on sortFilter
+      const sortedSales = [...salesData].sort((a, b) => {
+        switch (sortFilter) {
+          case 'newest':
+            return new Date(b.orderDate || b.createdAt || b._id) - new Date(a.orderDate || a.createdAt || a._id);
+          case 'oldest':
+            return new Date(a.orderDate || a.createdAt || a._id) - new Date(b.orderDate || b.createdAt || b._id);
+          case 'amount_high':
+            return (b.totalAmount || 0) - (a.totalAmount || 0);
+          case 'amount_low':
+            return (a.totalAmount || 0) - (b.totalAmount || 0);
+          case 'status':
+            return (a.status || '').localeCompare(b.status || '');
+          default:
+            return new Date(b.orderDate || b.createdAt || b._id) - new Date(a.orderDate || a.createdAt || a._id);
+        }
       });
       
       // Always use real data from API, even if empty
@@ -304,11 +361,11 @@ const Sales = () => {
     }
   }, [location.state, navigate, location.pathname]);
 
-  // Refetch when page or search changes for server-side pagination
+  // Refetch when page, search, or time filter changes
   useEffect(() => {
     fetchSales();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, timeFilter, selectedDate]);
 
   // Removed auto-refresh to prevent UI disturbance
 
@@ -388,18 +445,98 @@ const Sales = () => {
     return sortedSales;
   };
 
-  // Pagination logic - for server-side pagination, use data as-is
-  // Client-side filtering is only applied if no server-side search is active
+  // When "All Time" is selected or searching, sales state contains ALL results from server
+  // Otherwise, apply client-side time filters (for day, week, month, etc.)
   let filteredSales = sales;
-  if (!searchTerm.trim()) {
-    // Only apply client-side filters if not using server-side search
-    filteredSales = getFilteredSales();
+  const isAllTime = timeFilter === 'all';
+  const isSearching = searchTerm.trim().length > 0;
+  
+  // Only apply client-side time filters if not "All Time" and not searching
+  // (Backend handles time filters when searching, but we still need client-side for non-search)
+  if (!isAllTime && !isSearching) {
+    // Apply client-side time filter
+    const now = new Date();
+    let filterDate;
+    
+    switch (timeFilter) {
+      case 'day':
+        filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        filteredSales = sales.filter(sale => {
+          const saleDate = new Date(sale.orderDate || sale.createdAt);
+          return saleDate >= filterDate;
+        });
+        break;
+      case 'week':
+        filterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        filteredSales = sales.filter(sale => {
+          const saleDate = new Date(sale.orderDate || sale.createdAt);
+          return saleDate >= filterDate;
+        });
+        break;
+      case 'month':
+        filterDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        filteredSales = sales.filter(sale => {
+          const saleDate = new Date(sale.orderDate || sale.createdAt);
+          return saleDate >= filterDate;
+        });
+        break;
+      case '90days':
+        filterDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        filteredSales = sales.filter(sale => {
+          const saleDate = new Date(sale.orderDate || sale.createdAt);
+          return saleDate >= filterDate;
+        });
+        break;
+      case 'year':
+        filterDate = new Date(now.getFullYear(), 0, 1);
+        filteredSales = sales.filter(sale => {
+          const saleDate = new Date(sale.orderDate || sale.createdAt);
+          return saleDate >= filterDate;
+        });
+        break;
+      case 'custom':
+        if (selectedDate) {
+          const selected = new Date(selectedDate);
+          const startOfDay = new Date(selected.getFullYear(), selected.getMonth(), selected.getDate());
+          const endOfDay = new Date(selected.getFullYear(), selected.getMonth(), selected.getDate() + 1);
+          filteredSales = sales.filter(sale => {
+            const saleDate = new Date(sale.orderDate || sale.createdAt);
+            return saleDate >= startOfDay && saleDate < endOfDay;
+          });
+        }
+        break;
+      default:
+        break;
+    }
+    
+    // Apply client-side sorting
+    filteredSales = [...filteredSales].sort((a, b) => {
+      switch (sortFilter) {
+        case 'newest':
+          return new Date(b.orderDate || b.createdAt || b._id) - new Date(a.orderDate || a.createdAt || a._id);
+        case 'oldest':
+          return new Date(a.orderDate || a.createdAt || a._id) - new Date(b.orderDate || b.createdAt || b._id);
+        case 'amount_high':
+          return (b.totalAmount || 0) - (a.totalAmount || 0);
+        case 'amount_low':
+          return (a.totalAmount || 0) - (b.totalAmount || 0);
+        case 'status':
+          return (a.status || '').localeCompare(b.status || '');
+        default:
+          return new Date(b.orderDate || b.createdAt || b._id) - new Date(a.orderDate || a.createdAt || a._id);
+      }
+    });
+  } else {
+    // For "All Time" or when searching, sorting is already applied in fetchSales
+    // Just use the sales data as-is (already sorted)
+    filteredSales = sales;
   }
   
-  // Server-side pagination: the backend already returns one page
-  // Do not slice on the client; just use the fetched page
+  // When "All Time" or searching, show ALL results (no pagination)
+  // Otherwise, use pagination
   const currentSales = filteredSales;
-  const totalPages = Math.ceil((totalSalesCount || filteredSales.length) / itemsPerPage);
+  const showPagination = !isAllTime && !isSearching;
+  const totalPages = showPagination ? Math.ceil((totalSalesCount || filteredSales.length) / itemsPerPage) : 1;
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -450,10 +587,15 @@ const Sales = () => {
     }
   };
 
-  // Export sales data
+  // Export sales data - exports ALL filtered/search results
   const handleExportSales = async (format = 'excel') => {
     const { exportSales } = await import('../utils/exportUtils');
-    return exportSales(filteredSales, format);
+    // filteredSales contains ALL search results when searching, or all filtered results when not searching
+    const dataToExport = filteredSales.length > 0 ? filteredSales : sales;
+    const filename = searchTerm.trim() 
+      ? `sales-search-${searchTerm.trim().replace(/[^a-zA-Z0-9]/g, '-')}` 
+      : 'sales';
+    return exportSales(dataToExport, format, filename);
   };
 
   // Confirmation handlers
@@ -849,8 +991,8 @@ const Sales = () => {
           {user?.role !== 'agent' && (
             <ExportButton
               data={filteredSales}
-              filename="sales"
-              title="Sales Report"
+              filename={searchTerm.trim() ? `sales-search-${searchTerm.trim().replace(/[^a-zA-Z0-9]/g, '-')}` : 'sales'}
+              title={searchTerm.trim() ? `Sales Report - Search: ${searchTerm.trim()}` : 'Sales Report'}
               exportFunction={handleExportSales}
               variant="default"
               buttonText="Export"
@@ -945,7 +1087,7 @@ const Sales = () => {
         <div className="relative max-w-md">
           <input
             type="text"
-            placeholder="Search by phone number or CN number..."
+            placeholder="Search by phone number, CN number, or agent name..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -1679,8 +1821,8 @@ const Sales = () => {
           </>
         )}
 
-        {/* Pagination Controls */}
-        {!loading && filteredSales.length > 0 && (
+        {/* Pagination Controls - Only show when not "All Time" and not searching */}
+        {showPagination && totalPages > 1 && !loading && filteredSales.length > 0 && (
             <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 rounded-lg">
               <div className="flex flex-1 justify-between sm:hidden">
                 <button

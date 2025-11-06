@@ -308,7 +308,7 @@ export const exportUsers = (users, format = 'excel') => {
 };
 
 // Sales-specific export functions
-export const exportSales = (sales, format = 'excel') => {
+export const exportSales = (sales, format = 'excel', filename = 'sales') => {
   const salesData = sales.flatMap(sale => {
     // If sale has items array, create a row for each item
     if (sale.items && Array.isArray(sale.items)) {
@@ -318,6 +318,7 @@ export const exportSales = (sales, format = 'excel') => {
         'Customer Address': sale.deliveryAddress ? 
           `${sale.deliveryAddress.street || ''}, ${sale.deliveryAddress.city || ''}, ${sale.deliveryAddress.state || ''}, ${sale.deliveryAddress.country || ''}`.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '') : 'N/A',
         'Customer Phone': sale.customerInfo?.phone || 'N/A',
+        'Agent Name': sale.agentName || 'N/A',
         'Product Name': item.productId?.name || 'Unknown',
         'Product SKU': item.productId?.sku || 'N/A',
         'Variant Name': item.variantName || 'N/A',
@@ -340,6 +341,7 @@ export const exportSales = (sales, format = 'excel') => {
         'Customer Address': sale.deliveryAddress ? 
           `${sale.deliveryAddress.street || ''}, ${sale.deliveryAddress.city || ''}, ${sale.deliveryAddress.state || ''}, ${sale.deliveryAddress.country || ''}`.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '') : 'N/A',
         'Customer Phone': sale.customerInfo?.phone || 'N/A',
+        'Agent Name': sale.agentName || 'N/A',
         'Product Name': sale.productName || 'Unknown',
         'Product SKU': sale.productSKU || 'N/A',
         'Variant Name': sale.variantName || 'N/A',
@@ -357,11 +359,12 @@ export const exportSales = (sales, format = 'excel') => {
     }
   });
   
-  return exportData(salesData, format, 'sales', 'Sales Orders Report', [
+  return exportData(salesData, format, filename, 'Sales Orders Report', [
     { header: 'Order Number', key: 'Order Number' },
     { header: 'Customer Name', key: 'Customer Name' },
     { header: 'Customer Email', key: 'Customer Email' },
     { header: 'Customer Phone', key: 'Customer Phone' },
+    { header: 'Agent Name', key: 'Agent Name' },
     { header: 'Product Name', key: 'Product Name' },
     { header: 'Product SKU', key: 'Product SKU' },
     { header: 'Variant Name', key: 'Variant Name' },
@@ -382,7 +385,7 @@ export const exportSales = (sales, format = 'excel') => {
 };
 
 // Purchase-specific export functions
-export const exportPurchases = (purchases, format = 'excel') => {
+export const exportPurchases = (purchases, format = 'excel', filename = 'purchases') => {
   // Ensure purchases is an array
   if (!Array.isArray(purchases)) {
     console.error('exportPurchases: purchases is not an array:', purchases);
@@ -442,7 +445,7 @@ export const exportPurchases = (purchases, format = 'excel') => {
   console.log('exportPurchases: About to call exportData with format:', format);
   console.log('exportPurchases: Purchase data length:', purchaseData.length);
   
-  const result = exportData(purchaseData, format, 'purchases', 'Purchase Orders Report', [
+  const result = exportData(purchaseData, format, filename, 'Purchase Orders Report', [
     { header: 'Purchase Number', key: 'Purchase Number' },
     { header: 'Supplier', key: 'Supplier' },
     { header: 'Product', key: 'Product' },
