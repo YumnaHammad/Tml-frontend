@@ -122,64 +122,106 @@ const SalesFormPage = ({ onSuccess }) => {
       const warehouses = warehousesResponse.data || [];
       
       // Track which product+variant combinations have stock
+      const normalizeKey = (value) => {
+        if (!value) return '';
+        return String(value).toLowerCase().trim().replace(/\s+/g, ' ');
+      };
+
+      const productByIdMap = new Map(
+        allProducts.map(product => [product._id ? product._id.toString() : '', product])
+      );
+
       const variantStockMap = new Map(); // Key: "productId-variantId", Value: available quantity
-      const variantStockByNameMap = new Map(); // Key: "productName-variantName", Value: available quantity
-      
+      const variantStockByNameMap = new Map(); // Key: "normalizedProductName-normalizedVariantName", Value: available quantity
+      const productStockMap = new Map(); // Key: "productId", Value: available quantity
+      const productStockByNameMap = new Map(); // Key: "normalizedProductName", Value: available quantity
+
       warehouses.forEach(warehouse => {
-        if (warehouse.currentStock && Array.isArray(warehouse.currentStock)) {
-          warehouse.currentStock.forEach(stockItem => {
-            const totalStock = (stockItem.quantity || 0);
-            const reserved = (stockItem.reservedQuantity || 0);
-            const delivered = (stockItem.deliveredQuantity || 0);
-            const confirmedDelivered = (stockItem.confirmedDeliveredQuantity || 0);
-            const available = totalStock - reserved - delivered - confirmedDelivered;
-            
-            // Include ALL items in the map, even if available is 0 or negative
-            // This ensures all products with stock records appear in the dropdown
-            const productId = stockItem.productId?._id || stockItem.productId;
-            const variantId = stockItem.variantId || 'no-variant';
-            const productName = stockItem.productId?.name || 'Unknown Product';
-            const variantName = stockItem.variantDetails?.name || stockItem.variantName || 'no-variant';
-            
-            if (productId) {
-              // Keep both key formats for compatibility
-              const idKey = `${productId}-${variantId}`;
-              const nameKey = `${productName}-${variantName}`;
-              
-              const currentStockById = variantStockMap.get(idKey) || 0;
-              variantStockMap.set(idKey, currentStockById + Math.max(0, available));
-              
-              const currentStockByName = variantStockByNameMap.get(nameKey) || 0;
-              variantStockByNameMap.set(nameKey, currentStockByName + Math.max(0, available));
+        if (!Array.isArray(warehouse.currentStock)) return;
+
+        warehouse.currentStock.forEach(stockItem => {
+          const totalStock = stockItem.quantity || 0;
+          const reserved = stockItem.reservedQuantity || 0;
+          const delivered = stockItem.deliveredQuantity || 0;
+          const confirmedDelivered = stockItem.confirmedDeliveredQuantity || 0;
+          const available = Math.max(0, totalStock - reserved - delivered - confirmedDelivered);
+
+          const rawProductId = stockItem.productId?._id || stockItem.productId;
+          const productId = rawProductId ? rawProductId.toString() : '';
+          const rawVariantId = stockItem.variantId || 'no-variant';
+          const variantId = rawVariantId.toString();
+
+          const productRecord = productByIdMap.get(productId);
+          const productName = productRecord?.name || stockItem.productId?.name || 'Unknown Product';
+
+          let variantName = stockItem.variantDetails?.name || stockItem.variantName || 'no-variant';
+          if (
+            productRecord &&
+            productRecord.hasVariants &&
+            Array.isArray(productRecord.variants) &&
+            variantId !== 'no-variant'
+          ) {
+            const matchedVariant = productRecord.variants.find(
+              (v) => (v._id && v._id.toString() === variantId) || (v.sku && v.sku.toString() === variantId)
+            );
+            if (matchedVariant?.name) {
+              variantName = matchedVariant.name;
             }
-          });
-        }
+          }
+
+          if (productId) {
+            const idKey = `${productId}-${variantId}`;
+            variantStockMap.set(idKey, (variantStockMap.get(idKey) || 0) + available);
+            productStockMap.set(productId, (productStockMap.get(productId) || 0) + available);
+          }
+
+          const normalizedProductName = normalizeKey(productName);
+          const normalizedVariantName = normalizeKey(variantName);
+
+          const nameKey = `${normalizedProductName}-${normalizedVariantName}`;
+          variantStockByNameMap.set(nameKey, (variantStockByNameMap.get(nameKey) || 0) + available);
+
+          if (productName) {
+            productStockByNameMap.set(
+              normalizedProductName,
+              (productStockByNameMap.get(normalizedProductName) || 0) + available
+            );
+          }
+        });
       });
-      
+
       // Show all products, but mark stock availability for each variant/product
       const productsWithStockInfo = allProducts.map(product => {
+        const productIdStr = product._id ? product._id.toString() : '';
+        const normalizedProductName = normalizeKey(product.name);
+
         if (product.hasVariants && product.variants && product.variants.length > 0) {
-          // Show all variants, but mark which ones have stock
           const variantsWithStockInfo = product.variants.map(variant => {
-            const key = `${product._id}-${variant._id || variant.sku}`;
-            const availableStock = variantStockMap.get(key) || 0;
+            const rawVariantId = variant._id || variant.sku || 'no-variant';
+            const variantIdStr = rawVariantId.toString();
+            const variantKey = `${productIdStr}-${variantIdStr}`;
+            const nameKey = `${normalizedProductName}-${normalizeKey(variant.name)}`;
+            const availableStock = variantStockMap.get(variantKey) ?? variantStockByNameMap.get(nameKey) ?? 0;
+
             return {
               ...variant,
-              availableStock // Add stock info to variant
+              availableStock
             };
           });
-          
+
+          const productAvailableStock = productStockMap.get(productIdStr) ?? productStockByNameMap.get(normalizedProductName) ?? 0;
+
           return {
             ...product,
-            variants: variantsWithStockInfo // Show all variants with stock info
+            variants: variantsWithStockInfo,
+            availableStock: productAvailableStock
           };
         } else {
-          // No variants - add stock info to product
-          const key = `${product._id}-no-variant`;
-          const availableStock = variantStockMap.get(key) || 0;
+          const productAvailableStock = productStockMap.get(productIdStr) ?? productStockByNameMap.get(normalizedProductName) ?? 0;
+
           return {
             ...product,
-            availableStock // Add stock info to product
+            availableStock: productAvailableStock
           };
         }
       });
@@ -343,6 +385,24 @@ const SalesFormPage = ({ onSuccess }) => {
       const variant = product?.variants?.find(v => (v._id || v.sku) === variantId);
       const variantName = variant?.name || 'no-variant';
       
+      // Normalize names for flexible matching (lowercase, trim, remove extra spaces)
+      const normalizeName = (name) => {
+        if (!name || name === 'no-variant' || name === 'Unknown Product') return name;
+        return name.toLowerCase().trim().replace(/\s+/g, ' ');
+      };
+      
+      const normalizedProductName = normalizeName(productName);
+      const normalizedVariantName = normalizeName(variantName);
+      
+      // Debug logging
+      console.log('Checking stock for:', {
+        productId: item.productId,
+        productName: productName,
+        variantId: variantId,
+        variantName: variantName,
+        quantity: item.quantity
+      });
+      
       warehouses.forEach(warehouse => {
         if (warehouse.currentStock && Array.isArray(warehouse.currentStock)) {
           warehouse.currentStock.forEach(stockItem => {
@@ -351,20 +411,72 @@ const SalesFormPage = ({ onSuccess }) => {
             const stockProductName = stockItem.productId?.name || 'Unknown Product';
             const stockVariantName = stockItem.variantDetails?.name || stockItem.variantName || 'no-variant';
             
-            // Match by both ID and name for better accuracy
-            const idMatch = stockProductId === item.productId && stockVariantId === variantId;
-            const nameMatch = stockProductName === productName && stockVariantName === variantName;
+            // Normalize warehouse stock names
+            const normalizedStockProductName = normalizeName(stockProductName);
+            const normalizedStockVariantName = normalizeName(stockVariantName);
             
-            if (idMatch || nameMatch) {
+            // Match by ID (exact)
+            const idMatch = stockProductId && item.productId && 
+                          stockProductId.toString() === item.productId.toString() && 
+                          stockVariantId === variantId;
+            
+            // Match by normalized names (flexible)
+            const nameMatch = normalizedProductName !== 'unknown product' &&
+                            normalizedStockProductName !== 'unknown product' &&
+                            normalizedProductName === normalizedStockProductName &&
+                            (normalizedVariantName === normalizedStockVariantName || 
+                             normalizedVariantName === 'no-variant' && normalizedStockVariantName === 'no-variant');
+            
+            // Also try partial matching for variant names (e.g., "maroon" matches "maroon - PKF")
+            const variantPartialMatch = normalizedVariantName !== 'no-variant' &&
+                                       normalizedStockVariantName !== 'no-variant' &&
+                                       (normalizedStockVariantName.includes(normalizedVariantName) ||
+                                        normalizedVariantName.includes(normalizedStockVariantName));
+            
+            // Flexible product name matching (handles "Capri bag pac" vs "Capri bag pack of 4")
+            const productNameExactMatch = normalizedProductName !== 'unknown product' &&
+                                         normalizedStockProductName !== 'unknown product' &&
+                                         normalizedProductName === normalizedStockProductName;
+            
+            // Partial product name match (e.g., "capri bag pac" matches "capri bag pack of 4")
+            const productNamePartialMatch = normalizedProductName !== 'unknown product' &&
+                                          normalizedStockProductName !== 'unknown product' &&
+                                          (normalizedStockProductName.includes(normalizedProductName) ||
+                                           normalizedProductName.includes(normalizedStockProductName));
+            
+            const productNameMatch = productNameExactMatch || productNamePartialMatch;
+            const flexibleNameMatch = productNameMatch && (nameMatch || variantPartialMatch);
+            
+            if (idMatch || flexibleNameMatch) {
               const totalStock = (stockItem.quantity || 0);
               const reserved = (stockItem.reservedQuantity || 0);
               const delivered = (stockItem.deliveredQuantity || 0);
               const confirmedDelivered = (stockItem.confirmedDeliveredQuantity || 0);
               const available = totalStock - reserved - delivered - confirmedDelivered;
+              
+              console.log('Stock match found:', {
+                warehouse: warehouse.name,
+                productName: stockProductName,
+                variantName: stockVariantName,
+                totalStock,
+                reserved,
+                delivered,
+                confirmedDelivered,
+                available
+              });
+              
               totalAvailableStock += Math.max(0, available);
             }
           });
         }
+      });
+
+      console.log('Stock check result:', {
+        productName: productName,
+        variantName: variantName,
+        totalAvailableStock,
+        required: item.quantity,
+        sufficient: totalAvailableStock >= item.quantity
       });
 
       setStockChecks(prev => ({

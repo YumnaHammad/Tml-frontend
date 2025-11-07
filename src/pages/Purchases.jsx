@@ -30,8 +30,71 @@ const Purchases = () => {
   const [viewMode, setViewMode] = useState('table'); // 'grid', 'list', or 'table'
   const [searchTerm, setSearchTerm] = useState(''); // Search filter for supplier name, phone, purchase number
   const [totalPurchasesCount, setTotalPurchasesCount] = useState(0); // Total purchases count from server
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const normalizeKey = (value) => {
+    if (!value) return '';
+    return String(value).toLowerCase().trim().replace(/\s+/g, ' ');
+  };
+
+  const findProductById = (productRef) => {
+    if (!productRef) return null;
+    const productId = typeof productRef === 'object' && productRef._id ? productRef._id : productRef;
+    return products.find(product => product._id && product._id.toString() === productId.toString());
+  };
+
+  const getCanonicalProductName = (productRef, fallbackName = 'Unknown Product') => {
+    const product = findProductById(productRef);
+    return product?.name || fallbackName;
+  };
+
+  const getCanonicalVariantName = (productRef, variantId, fallbackName = '') => {
+    const product = findProductById(productRef);
+    const normalizedFallback = normalizeKey(fallbackName);
+
+    if (!variantId || variantId === 'no-variant') {
+      if (
+        product &&
+        product.hasVariants &&
+        Array.isArray(product.variants) &&
+        normalizedFallback && normalizedFallback !== ''
+      ) {
+        const matchedVariantByName = product.variants.find(
+          (variant) => normalizeKey(variant.name) === normalizedFallback
+        );
+        if (matchedVariantByName?.name) {
+          return matchedVariantByName.name;
+        }
+      }
+      return fallbackName || '';
+    }
+
+    if (product && product.hasVariants && Array.isArray(product.variants)) {
+      const matchedVariantById = product.variants.find(
+        (variant) => {
+          const candidateId = variant._id || variant.sku;
+          return candidateId && candidateId.toString() === variantId.toString();
+        }
+      );
+      if (matchedVariantById?.name) {
+        return matchedVariantById.name;
+      }
+
+      if (normalizedFallback && normalizedFallback !== '') {
+        const matchedVariantByName = product.variants.find(
+          (variant) => normalizeKey(variant.name) === normalizedFallback
+        );
+        if (matchedVariantByName?.name) {
+          return matchedVariantByName.name;
+        }
+      }
+    }
+
+    return fallbackName || '';
+  };
 
   // Fetch purchases data with server-side pagination
   const fetchPurchases = async () => {
@@ -97,6 +160,10 @@ const Purchases = () => {
       const response = await api.get(`/purchases?${params.toString()}`);
       let purchasesData = response.data?.purchases || [];
       const totalFromServer = response.data?.total || 0;
+
+      if (!products || products.length === 0) {
+        await fetchProducts();
+      }
       
       // Check for temporary purchases in localStorage (newly created ones)
       const tempPurchases = JSON.parse(localStorage.getItem('tempPurchases') || '[]');
@@ -160,6 +227,31 @@ const Purchases = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      setProductsLoading(true);
+      const response = await api.get('/products');
+      let productsData = [];
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          productsData = response.data;
+        } else if (Array.isArray(response.data?.products)) {
+          productsData = response.data.products;
+        } else if (Array.isArray(response.data?.data)) {
+          productsData = response.data.data;
+        }
+      }
+      setProducts(productsData);
+      return productsData;
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setProducts([]);
+      return [];
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -259,7 +351,13 @@ const Purchases = () => {
   };
 
   useEffect(() => {
-    fetchPurchases();
+    const initialize = async () => {
+      await fetchProducts();
+      await fetchPurchases();
+    };
+
+    initialize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Check for temporary purchases on component mount
@@ -879,13 +977,14 @@ const Purchases = () => {
                           <div className="text-sm text-gray-900">
                             {purchase.items && purchase.items.length > 0 ? (
                               purchase.items.slice(0, 3).map((item, idx) => {
-                                const productName = item.productId?.name || 'Unknown';
-                                const variantName = item.variantName ? ` - ${item.variantName}` : '';
+                                const canonicalProductName = getCanonicalProductName(item.productId, item.productId?.name || item.productName || 'Unknown Product');
+                                const canonicalVariantName = getCanonicalVariantName(item.productId, item.variantId, item.variantName);
                                 return (
                                   <div key={idx}>
                                     {idx > 0 && <hr className="my-2 border-gray-300" />}
                                     <div className="text-sm text-gray-600 mb-1">
-                                      {productName}{variantName}
+                                      {canonicalProductName}
+                                      {canonicalVariantName ? ` - ${canonicalVariantName}` : ''}
                                     </div>
                                   </div>
                                 );
@@ -993,201 +1092,164 @@ const Purchases = () => {
             ) : (
               // List View (existing grid/list view)
               <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6' : 'space-y-3 sm:space-y-4'}>
-                {currentPurchases.map((purchase) => (
-              <motion.div
-                key={purchase._id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`border rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-300 ${
-                  newlyAddedPurchaseId === purchase._id 
-                    ? 'border-green-500 bg-green-50 shadow-lg ring-2 ring-green-200' 
-                    : 'border-gray-200'
-                }`}
-              >
-                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-3 sm:gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-gray-900 text-sm sm:text-base">{purchase.purchaseNumber}</span>
-                        <span className={`px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                          purchase.status === 'received' ? 'bg-green-100 text-green-800' :
-                          purchase.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {purchase.status}
-                        </span>
-                        {user?.role === 'admin' && (
-                          <>
-                            <span className={`px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                              purchase.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                              purchase.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              purchase.paymentStatus === 'partial' ? 'bg-blue-100 text-blue-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {purchase.paymentStatus}
-                            </span>
-                            
-                            {/* Partial Payment Info */}
-                            {purchase.paymentStatus === 'partial' && purchase.advancePayment > 0 && (
-                              <div className="text-xs text-gray-600 mt-1">
-                                <span className="font-medium">Advance:</span> PKR {purchase.advancePayment.toFixed(2)} | 
-                                <span className="font-medium ml-1">Remaining:</span> PKR {(purchase.remainingPayment || 0).toFixed(2)}
+                {currentPurchases.map((purchase) => {
+                  const firstItem = purchase.items && purchase.items.length > 0 ? purchase.items[0] : null;
+                  const badgeVariantName = firstItem
+                    ? getCanonicalVariantName(firstItem.productId, firstItem.variantId, firstItem.variantName || '')
+                    : '';
+                  const badgeDisplayName = badgeVariantName || 'No Variant';
+
+                  return (
+                    <motion.div
+                      key={purchase._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`border rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-300 ${
+                        newlyAddedPurchaseId === purchase._id
+                          ? 'border-green-500 bg-green-50 shadow-lg ring-2 ring-green-200'
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-gray-900 text-sm sm:text-base">{purchase.purchaseNumber}</span>
+                              {firstItem && (
+                                <span className="px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium whitespace-nowrap bg-blue-100 text-blue-800">
+                                  {badgeDisplayName}
+                                </span>
+                              )}
+                              <span className={`px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                purchase.status === 'received' ? 'bg-green-100 text-green-800' :
+                                purchase.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {purchase.status}
+                              </span>
+                              {user?.role === 'admin' && (
+                                <>
+                                  <span className={`px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                    purchase.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                                    purchase.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                    purchase.paymentStatus === 'partial' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-red-100 text-red-800'
+                                  }`}>
+                                    {purchase.paymentStatus}
+                                  </span>
+                                  {purchase.paymentStatus === 'partial' && purchase.advancePayment > 0 && (
+                                    <div className="text-xs text-gray-600 mt-1">
+                                      <span className="font-medium">Advance:</span> PKR {purchase.advancePayment.toFixed(2)} |
+                                      <span className="font-medium ml-1">Remaining:</span> PKR {(purchase.remainingPayment || 0).toFixed(2)}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                            {user?.role === 'admin' && (
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                {!purchase.invoiceGenerated && (
+                                  <button
+                                    onClick={() => handleGenerateInvoice(purchase._id)}
+                                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                                    title="Generate Invoice"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {purchase.invoiceGenerated && (
+                                  <div className="flex items-center space-x-1">
+                                    <button
+                                      onClick={() => handleDownloadDocument(purchase._id, 'invoice', 'pdf')}
+                                      className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                                      title="Download Invoice (PDF)"
+                                    >
+                                      <FileText className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-xs text-green-600 font-medium">INV</span>
+                                  </div>
+                                )}
+                                {purchase.paymentStatus !== 'paid' && (
+                                  <button
+                                    onClick={() => handleMarkPaymentCleared(purchase._id)}
+                                    className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors duration-200"
+                                    title="Mark Payment Cleared"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {purchase.receiptGenerated && (
+                                  <div className="flex items-center space-x-1">
+                                    <button
+                                      onClick={() => handleDownloadDocument(purchase._id, 'receipt', 'pdf')}
+                                      className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors duration-200"
+                                      title="Download Receipt (PDF)"
+                                    >
+                                      <Receipt className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-xs text-green-600 font-medium">REC</span>
+                                  </div>
+                                )}
+                                {purchase.paymentStatus === 'paid' && !purchase.receiptGenerated && (
+                                  <div className="flex items-center space-x-1 text-green-600">
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span className="text-xs font-medium">PAID</span>
+                                  </div>
+                                )}
                               </div>
                             )}
-                          </>
+                          </div>
+                          <div className="mt-2 sm:mt-3">
+                            <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">Items:</p>
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                              {purchase.items.slice(0, 3).map((item, index) => {
+                                const canonicalProductName = getCanonicalProductName(item.productId, item.productId?.name || item.productName || 'Unknown Product');
+                                const canonicalVariantName = getCanonicalVariantName(item.productId, item.variantId, item.variantName);
+                                const displayName = canonicalVariantName
+                                  ? `${canonicalProductName} - ${canonicalVariantName}`
+                                  : canonicalProductName;
+
+                                return (
+                                  <span
+                                    key={index}
+                                    className="px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs truncate max-w-[200px]"
+                                    title={`${displayName} (x${item.quantity})`}
+                                  >
+                                    {displayName} (x{item.quantity})
+                                  </span>
+                                );
+                              })}
+                              {purchase.items.length > 3 && (
+                                <span className="px-2 py-0.5 sm:py-1 bg-gray-100 text-gray-600 rounded-full text-xs whitespace-nowrap">
+                                  +{purchase.items.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {user?.role === 'admin' ? (
+                          <div className="lg:text-right border-t lg:border-t-0 lg:border-l border-gray-200 pt-3 lg:pt-0 lg:pl-4 min-w-0 flex-shrink-0">
+                            <div className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
+                              <span className="font-medium">Supplier:</span> {purchase.supplierId?.name || 'Unknown'}
+                            </div>
+                            <div className="text-xs text-gray-400 mb-2">
+                              {purchase.receivedDate ? `Received: ${new Date(purchase.receivedDate).toLocaleDateString()}` : 'Not received yet'}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="lg:text-right border-t lg:border-t-0 lg:border-l border-gray-200 pt-3 lg:pt-0 lg:pl-4 min-w-0 flex-shrink-0">
+                            <div className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
+                              <span className="font-medium">Purchase Date:</span> {new Date(purchase.purchaseDate || purchase.createdAt).toLocaleDateString()}
+                            </div>
+                            <div className="text-xs text-gray-400 mb-2">
+                              <span className="font-medium">Status:</span> {purchase.status}
+                            </div>
+                          </div>
                         )}
                       </div>
-                      
-                      {/* Action Buttons - Admin Only */}
-                      {user?.role === 'admin' && (
-                        <div className="flex items-center gap-1 sm:gap-2">
-                          {/* Generate Invoice */}
-                          {!purchase.invoiceGenerated && (
-                            <button
-                              onClick={() => handleGenerateInvoice(purchase._id)}
-                              className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                              title="Generate Invoice"
-                            >
-                              <FileText className="w-4 h-4" />
-                            </button>
-                          )}
-                          
-                          {/* Download Invoice */}
-                          {purchase.invoiceGenerated && (
-                            <div className="flex items-center space-x-1">
-                              <button
-                                onClick={() => handleDownloadDocument(purchase._id, 'invoice', 'pdf')}
-                                className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                                title="Download Invoice (PDF)"
-                              >
-                                <FileText className="w-4 h-4" />
-                              </button>
-                              <span className="text-xs text-green-600 font-medium">INV</span>
-                            </div>
-                          )}
-                          
-                          {/* Clear Payment */}
-                          {purchase.paymentStatus !== 'paid' && (
-                            <button
-                              onClick={() => handleMarkPaymentCleared(purchase._id)}
-                              className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors duration-200"
-                              title="Mark Payment Cleared"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                          )}
-                          
-                          {/* Download Receipt */}
-                          {purchase.receiptGenerated && (
-                            <div className="flex items-center space-x-1">
-                              <button
-                                onClick={() => handleDownloadDocument(purchase._id, 'receipt', 'pdf')}
-                                className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors duration-200"
-                                title="Download Receipt (PDF)"
-                              >
-                                <Receipt className="w-4 h-4" />
-                              </button>
-                              <span className="text-xs text-green-600 font-medium">REC</span>
-                            </div>
-                          )}
-                          
-                          {/* Payment Status Indicator */}
-                          {purchase.paymentStatus === 'paid' && !purchase.receiptGenerated && (
-                            <div className="flex items-center space-x-1 text-green-600">
-                              <CheckCircle className="w-4 h-4" />
-                              <span className="text-xs font-medium">PAID</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
-                      <div className="flex items-center">
-                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                        <span className="truncate">{new Date(purchase.purchaseDate || purchase.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                        <span>{purchase.items.length} items</span>
-                      </div>
-                      {user?.role === 'admin' && (
-                        <div className="flex items-center">
-                          <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                          <span className="font-medium truncate">PKR {purchase.totalAmount?.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                    {user?.role === 'admin' ? (
-                      <div className="mt-2 sm:mt-3">
-                        <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">Items:</p>
-                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                          {purchase.items.slice(0, 3).map((item, index) => {
-                            const productName = item.productId?.name || 'Unknown Product';
-                            const variantName = item.variantName ? ` - ${item.variantName}` : '';
-                            const displayName = `${productName}${variantName}`;
-                            
-                            return (
-                              <span
-                                key={index}
-                                className="px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs truncate max-w-[200px]"
-                                title={`${displayName} (x${item.quantity})`}
-                              >
-                                {displayName} (x{item.quantity})
-                              </span>
-                            );
-                          })}
-                          {purchase.items.length > 3 && (
-                            <span className="px-2 py-0.5 sm:py-1 bg-gray-100 text-gray-600 rounded-full text-xs whitespace-nowrap">
-                              +{purchase.items.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-2 sm:mt-3">
-                        <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">Supplier Profile:</p>
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-blue-600 font-semibold text-sm">
-                                {(purchase.supplierId?.name || 'Unknown').charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 text-sm">{purchase.supplierId?.name || 'Unknown Supplier'}</p>
-                              <p className="text-xs text-gray-500">{purchase.supplierId?.email || 'No email'}</p>
-                            </div>
-                          </div>
-                          <div className="text-xs text-gray-600">
-                            <p><span className="font-medium">Phone:</span> {purchase.supplierId?.phone || 'Not provided'}</p>
-                            <p><span className="font-medium">Location:</span> {purchase.supplierId?.address || 'Not provided'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {user?.role === 'admin' ? (
-                    <div className="lg:text-right border-t lg:border-t-0 lg:border-l border-gray-200 pt-3 lg:pt-0 lg:pl-4 min-w-0 flex-shrink-0">
-                      <div className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
-                        <span className="font-medium">Supplier:</span> {purchase.supplierId?.name || 'Unknown'}
-                      </div>
-                      <div className="text-xs text-gray-400 mb-2">
-                        {purchase.receivedDate ? `Received: ${new Date(purchase.receivedDate).toLocaleDateString()}` : 'Not received yet'}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="lg:text-right border-t lg:border-t-0 lg:border-l border-gray-200 pt-3 lg:pt-0 lg:pl-4 min-w-0 flex-shrink-0">
-                      <div className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
-                        <span className="font-medium">Purchase Date:</span> {new Date(purchase.purchaseDate || purchase.createdAt).toLocaleDateString()}
-                      </div>
-                      <div className="text-xs text-gray-400 mb-2">
-                        <span className="font-medium">Status:</span> {purchase.status}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
 

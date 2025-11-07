@@ -49,11 +49,74 @@ const Warehouses = () => {
   const navigate = useNavigate();
   const { user, hasAnyRole } = useAuth();
 
-  useEffect(() => {
-    if (location.pathname === '/warehouses') {
-      fetchWarehouses();
+  const normalizeKey = (value) => {
+    if (!value) return '';
+    return String(value).toLowerCase().trim().replace(/\s+/g, ' ');
+  };
+
+  const findProductById = (productId) => {
+    if (!productId) return null;
+    return products.find(
+      (product) => product._id && product._id.toString() === productId.toString()
+    );
+  };
+
+  const getCanonicalProductName = (stockItem) => {
+    const productId = stockItem.productId?._id || stockItem.productId;
+    const productRecord = findProductById(productId);
+    return productRecord?.name || stockItem.productId?.name || 'Unknown Product';
+  };
+
+  const getCanonicalVariantName = (stockItem) => {
+    const productId = stockItem.productId?._id || stockItem.productId;
+    const productRecord = findProductById(productId);
+    const variantId = stockItem.variantId || 'no-variant';
+    let variantName = stockItem.variantDetails?.name || stockItem.variantName || 'no-variant';
+    const normalizedFallbackName = normalizeKey(variantName);
+
+    if (
+      productRecord &&
+      productRecord.hasVariants &&
+      Array.isArray(productRecord.variants) &&
+      variantId !== 'no-variant'
+    ) {
+      const matchedVariant = productRecord.variants.find(
+        (variant) => {
+          const candidateId = variant._id || variant.sku;
+          return candidateId && candidateId.toString() === variantId.toString();
+        }
+      );
+      if (matchedVariant?.name) {
+        return matchedVariant.name;
+      }
     }
-    fetchProducts();
+
+    if (
+      productRecord &&
+      productRecord.hasVariants &&
+      Array.isArray(productRecord.variants) &&
+      normalizedFallbackName && normalizedFallbackName !== 'no-variant'
+    ) {
+      const matchedVariantByName = productRecord.variants.find(
+        (variant) => normalizeKey(variant.name) === normalizedFallbackName
+      );
+      if (matchedVariantByName?.name) {
+        return matchedVariantByName.name;
+      }
+    }
+
+    return variantName;
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchProducts();
+      if (location.pathname === '/warehouses') {
+        await fetchWarehouses();
+      }
+    };
+
+    loadData();
   }, [location.pathname]);
 
   // Ensure products is always an array to prevent map errors
@@ -350,9 +413,11 @@ const Warehouses = () => {
       const mergedStock = {};
       
       selectedWarehouse.currentStock.forEach(stockItem => {
-        const productName = stockItem.productId?.name || 'Unknown Product';
-        const variantName = stockItem.variantDetails?.name || stockItem.variantName || 'no-variant';
-        const key = `${productName}-${variantName}`;
+        const canonicalProductName = getCanonicalProductName(stockItem);
+        const canonicalVariantName = getCanonicalVariantName(stockItem);
+        const productNameKey = normalizeKey(canonicalProductName);
+        const variantNameKey = normalizeKey(canonicalVariantName);
+        const key = `${productNameKey}-${variantNameKey}`;
         
         if (!mergedStock[key]) {
           mergedStock[key] = {
@@ -363,8 +428,9 @@ const Warehouses = () => {
             confirmedDeliveredQuantity: 0,
             expectedReturns: 0,
             returnedQuantity: 0,
-            displayProductName: productName,
-            displayVariantName: variantName,
+            // Store the display names for consistent display
+            displayProductName: canonicalProductName,
+            displayVariantName: canonicalVariantName,
             displaySKU: stockItem.variantDetails?.sku || stockItem.productId?.sku || 'N/A'
           };
         }
