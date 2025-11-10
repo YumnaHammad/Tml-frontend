@@ -335,7 +335,6 @@ const SalesFormPage = ({ onSuccess }) => {
   };
 
   const updateItem = async (index, field, value) => {
-    if (isEditing) return; // Prevent editing order details when in edit mode
     const updatedItems = formData.items.map((item, i) => 
       i === index 
         ? { 
@@ -958,16 +957,14 @@ const SalesFormPage = ({ onSuccess }) => {
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Order Items</h2>
-              {!isEditing && (
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="btn-primary flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Item</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={addItem}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Item</span>
+              </button>
             </div>
 
             {validationErrors.items && (
@@ -990,15 +987,13 @@ const SalesFormPage = ({ onSuccess }) => {
                   <div key={index} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-medium text-gray-900">Item {index + 1}</h3>
-                      {!isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="text-red-600 hover:text-red-800 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1009,10 +1004,9 @@ const SalesFormPage = ({ onSuccess }) => {
                         <select
                           value={item.productId}
                           onChange={(e) => updateItem(index, 'productId', e.target.value)}
-                          disabled={isEditing}
                           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                             validationErrors[`item_${index}_productId`] ? 'border-red-500' : 'border-gray-300'
-                          } ${isEditing ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
+                          }`}
                         >
                           <option value="">Select Product</option>
                           {products.map(product => {
@@ -1042,10 +1036,9 @@ const SalesFormPage = ({ onSuccess }) => {
                           <select
                             value={item.variantId || ''}
                             onChange={(e) => updateItem(index, 'variantId', e.target.value)}
-                            disabled={isEditing}
                             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                               validationErrors[`item_${index}_variantId`] ? 'border-red-500' : 'border-gray-300'
-                            } ${isEditing ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
+                            }`}
                           >
                             <option value="">Select Variant</option>
                             {getProductVariants(item.productId).map(variant => {
@@ -1076,10 +1069,9 @@ const SalesFormPage = ({ onSuccess }) => {
                           min="1"
                           value={item.quantity}
                           onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                          disabled={isEditing}
                           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                             validationErrors[`item_${index}_quantity`] ? 'border-red-500' : 'border-gray-300'
-                          } ${isEditing ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
+                          }`}
                         />
                         {validationErrors[`item_${index}_quantity`] && (
                           <p className="mt-1 text-sm text-red-600">
@@ -1122,10 +1114,9 @@ const SalesFormPage = ({ onSuccess }) => {
                           step="0.01"
                           value={item.unitPrice}
                           onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          disabled={isEditing}
                           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                             validationErrors[`item_${index}_unitPrice`] ? 'border-red-500' : 'border-gray-300'
-                          } ${isEditing ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''}`}
+                          }`}
                         />
                         {validationErrors[`item_${index}_unitPrice`] && (
                           <p className="mt-1 text-sm text-red-600">
