@@ -19,6 +19,13 @@ const SalesFormPage = ({ onSuccess }) => {
   const getCurrentTimestamp = () => {
     return new Date().toISOString();
   };
+  const formatDateTimeLocal = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const timezoneOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+  };
   
   const [formData, setFormData] = useState({
     customerInfo: {
@@ -40,6 +47,7 @@ const SalesFormPage = ({ onSuccess }) => {
     },
     agentName: '',
     timestamp: getCurrentTimestamp(),
+    orderDate: getCurrentTimestamp(),
     notes: '',
     items: [],
     status: 'pending'
@@ -79,6 +87,7 @@ const SalesFormPage = ({ onSuccess }) => {
         },
         agentName: sale.agentName || '',
         timestamp: sale.timestamp || getCurrentTimestamp(),
+        orderDate: sale.orderDate || sale.timestamp || sale.createdAt || getCurrentTimestamp(),
         notes: sale.notes || '',
         items: sale.items?.map(item => ({
           productId: item.productId?._id || item.productId || '',
@@ -101,9 +110,11 @@ const SalesFormPage = ({ onSuccess }) => {
   // Update timestamp when user is available (but don't auto-populate agent name)
   useEffect(() => {
     if (user && !isEditing) {
+      const now = new Date().toISOString();
       setFormData(prev => ({
         ...prev,
-        timestamp: new Date().toISOString()
+        timestamp: now,
+        orderDate: prev.orderDate || now
       }));
     }
   }, [user, isEditing]);
@@ -298,6 +309,33 @@ const SalesFormPage = ({ onSuccess }) => {
       setValidationErrors(prev => ({
         ...prev,
         [name]: ''
+      }));
+    }
+  };
+
+  const handleOrderDateChange = (value) => {
+    if (!value) {
+      setFormData(prev => ({
+        ...prev,
+        orderDate: ''
+      }));
+      return;
+    }
+
+    const selected = new Date(value);
+    if (Number.isNaN(selected.getTime())) {
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      orderDate: selected.toISOString()
+    }));
+
+    if (validationErrors.orderDate) {
+      setValidationErrors(prev => ({
+        ...prev,
+        orderDate: ''
       }));
     }
   };
@@ -516,6 +554,10 @@ const SalesFormPage = ({ onSuccess }) => {
       errors['deliveryAddress.city'] = 'Delivery city is required';
     }
 
+    if (!formData.orderDate) {
+      errors.orderDate = 'Sale date and time is required';
+    }
+
     // Items validation
     if (formData.items.length === 0) {
       errors.items = 'At least one item is required';
@@ -578,6 +620,10 @@ const SalesFormPage = ({ onSuccess }) => {
         };
       });
 
+      const orderDateISO = formData.orderDate
+        ? new Date(formData.orderDate).toISOString()
+        : currentTimestamp;
+
       // Transform the data to include customerName at the top level
       const salesData = {
         ...formData,
@@ -587,6 +633,7 @@ const SalesFormPage = ({ onSuccess }) => {
         customerPhone: formData.customerInfo.phone,
         agentName: formData.agentName || '',
         timestamp: currentTimestamp,
+        orderDate: orderDateISO,
         hasOutOfStockItems: itemsWithStockStatus.some(item => item.isOutOfStock)
       };
       
@@ -837,7 +884,27 @@ const SalesFormPage = ({ onSuccess }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Timestamp
+                  Sale Date &amp; Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  name="orderDate"
+                  value={formatDateTimeLocal(formData.orderDate)}
+                  onChange={(e) => handleOrderDateChange(e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    validationErrors.orderDate ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {validationErrors.orderDate && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                    {validationErrors.orderDate}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  System Timestamp
                 </label>
                 <input
                   type="text"

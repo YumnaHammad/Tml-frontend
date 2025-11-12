@@ -1087,7 +1087,7 @@ const Sales = () => {
         <div className="relative max-w-md">
           <input
             type="text"
-            placeholder="Search by phone number, CN number, or agent name..."
+            placeholder="Search by phone, CN, agent, sale date, or product name..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -1194,7 +1194,10 @@ const Sales = () => {
                           Order Number
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Timestamp
+                          Sale Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          System Timestamp
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Customer Name
@@ -1254,7 +1257,14 @@ const Sales = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-semibold text-gray-900">{sale.orderNumber}</div>
                           </td>
-                          {/* Timestamp */}
+                          {/* Sale Date */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {sale.orderDate ? new Date(sale.orderDate).toLocaleString() :
+                               '-'}
+                            </div>
+                          </td>
+                          {/* System Timestamp */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
                               {sale.timestamp ? new Date(sale.timestamp).toLocaleString() : 
@@ -1639,9 +1649,19 @@ const Sales = () => {
                       )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm text-gray-600">
-                      <div className="flex items-center">
-                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                        <span className="truncate">{new Date(sale.createdAt).toLocaleDateString()}</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center">
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                          <span className="truncate">
+                            Sale: {sale.orderDate ? new Date(sale.orderDate).toLocaleString() : '-'}
+                          </span>
+                        </div>
+                        <div className="flex items-center mt-1 text-[11px] sm:text-xs text-gray-500">
+                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                          <span className="truncate">
+                            System: {sale.timestamp ? new Date(sale.timestamp).toLocaleString() : (sale.createdAt ? new Date(sale.createdAt).toLocaleString() : '-')}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center">
                         <Truck className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
