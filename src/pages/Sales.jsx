@@ -527,9 +527,23 @@ const Sales = () => {
       }
     });
   } else {
-    // For "All Time" or when searching, sorting is already applied in fetchSales
-    // Just use the sales data as-is (already sorted)
-    filteredSales = sales;
+    // Always respect the selected sort order, even when showing all results
+    filteredSales = [...sales].sort((a, b) => {
+      switch (sortFilter) {
+        case 'newest':
+          return new Date(b.orderDate || b.createdAt || b._id) - new Date(a.orderDate || a.createdAt || a._id);
+        case 'oldest':
+          return new Date(a.orderDate || a.createdAt || a._id) - new Date(b.orderDate || b.createdAt || b._id);
+        case 'amount_high':
+          return (b.totalAmount || 0) - (a.totalAmount || 0);
+        case 'amount_low':
+          return (a.totalAmount || 0) - (b.totalAmount || 0);
+        case 'status':
+          return (a.status || '').localeCompare(b.status || '');
+        default:
+          return new Date(b.orderDate || b.createdAt || b._id) - new Date(a.orderDate || a.createdAt || a._id);
+      }
+    });
   }
   
   // When "All Time" or searching, show ALL results (no pagination)
@@ -1087,7 +1101,7 @@ const Sales = () => {
         <div className="relative max-w-md">
           <input
             type="text"
-            placeholder="Search by phone, CN, agent, sale date, or product name..."
+            placeholder="Search by phone, CN, agent, or product name..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
