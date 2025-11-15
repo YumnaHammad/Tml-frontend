@@ -1286,15 +1286,19 @@ const Sales = () => {
                           </td>
 
                           {/* Customer Name */}
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4" style={{ maxWidth: '150px', width: '150px' }}>
                             <div
-                              className="text-sm text-gray-900 truncate max-w-[120px]"
+                              className="text-sm text-gray-900 break-words overflow-hidden text-ellipsis"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
                               title={sale.customerName || sale.customerInfo?.name || 'N/A'}
                             >
-                              {(() => {
-                                const customerName = sale.customerName || sale.customerInfo?.name || 'N/A';
-                                return customerName.length > 10 ? `${customerName.substring(0, 10)}...` : customerName;
-                              })()}
+                              {sale.customerName || sale.customerInfo?.name || 'N/A'}
                             </div>
                           </td>
 
@@ -1304,20 +1308,24 @@ const Sales = () => {
                           </td>
 
                           {/* Agent Name */}
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4" style={{ maxWidth: '150px', width: '150px' }}>
                             <div
-                              className="text-sm text-gray-900 truncate max-w-[120px]"
+                              className="text-sm text-gray-900 break-words overflow-hidden text-ellipsis line-clamp-2"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
                               title={sale.agentName || sale.agent_name || sale.createdBy?.firstName || sale.createdBy?.email || '-'}
                             >
-                              {(() => {
-                                const agentName = sale.agentName || sale.agent_name || sale.createdBy?.firstName || sale.createdBy?.email || '-';
-                                return agentName.length > 10 ? `${agentName.substring(0, 10)}...` : agentName;
-                              })()}
+                              {sale.agentName || sale.agent_name || sale.createdBy?.firstName || sale.createdBy?.email || '-'}
                             </div>
                           </td>
 
                           {/* Product Name */}
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4" style={{ maxWidth: '200px', width: '200px' }}>
                             <div className="text-sm text-gray-900">
                               {sale.items && sale.items.length > 0 ? (
                                 sale.items.slice(0, 3).map((item, idx) => {
@@ -1329,10 +1337,17 @@ const Sales = () => {
                                     <div key={idx}>
                                       {idx > 0 && <hr className="my-2 border-gray-300" />}
                                       <div
-                                        className="text-sm text-gray-600 mb-1 truncate max-w-[200px]"
+                                        className="text-sm text-gray-600 mb-1 break-words overflow-hidden text-ellipsis"
+                                        style={{
+                                          display: '-webkit-box',
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: 'vertical',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis'
+                                        }}
                                         title={fullProductName}
                                       >
-                                        {fullProductName.length > 10 ? `${fullProductName.substring(0, 10)}...` : fullProductName}
+                                        {fullProductName}
                                       </div>
                                     </div>
                                   );
@@ -1377,24 +1392,38 @@ const Sales = () => {
                           </td>
 
                           {/* Customer Address */}
-                          <td className="px-6 py-4" style={{ minWidth: '250px', width: '300px' }}>
+                          <td className="px-6 py-4" style={{ maxWidth: '250px', width: '250px' }}>
                             <div className="text-sm text-gray-900">
                               {sale.deliveryAddress ? (
                                 <>
                                   {sale.deliveryAddress.street && (
                                     <div
-                                      className="truncate max-w-[250px]"
+                                      className="break-words overflow-hidden text-ellipsis"
+                                      style={{
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }}
                                       title={sale.deliveryAddress.street}
                                     >
-                                      {sale.deliveryAddress.street.length > 10 ? `${sale.deliveryAddress.street.substring(0, 10)}...` : sale.deliveryAddress.street}
+                                      {sale.deliveryAddress.street}
                                     </div>
                                   )}
                                   {sale.deliveryAddress.city && (
                                     <div
-                                      className="text-xs text-gray-600 truncate max-w-[250px]"
+                                      className="text-xs text-gray-600 break-words overflow-hidden text-ellipsis"
+                                      style={{
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 1,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }}
                                       title={sale.deliveryAddress.city}
                                     >
-                                      {sale.deliveryAddress.city.length > 10 ? `${sale.deliveryAddress.city.substring(0, 10)}...` : sale.deliveryAddress.city}
+                                      {sale.deliveryAddress.city}
                                     </div>
                                   )}
                                   {sale.deliveryAddress.country && (
@@ -1408,9 +1437,19 @@ const Sales = () => {
                           </td>
 
                           {/* Notes */}
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 max-w-xs truncate" title={sale.notes}>
-                              {sale.notes ? (sale.notes.length > 10 ? `${sale.notes.substring(0, 10)}...` : sale.notes) : '-'}
+                          <td className="px-6 py-4" style={{ maxWidth: '150px', width: '150px' }}>
+                            <div
+                              className="text-sm text-gray-900 break-words overflow-hidden text-ellipsis"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                              title={sale.notes || '-'}
+                            >
+                              {sale.notes || '-'}
                             </div>
                           </td>
 

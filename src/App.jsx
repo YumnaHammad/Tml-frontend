@@ -10,6 +10,8 @@ import Login from './pages/Login';
 import Products from './pages/Products';
 import Warehouses from './pages/Warehouses';
 import Sales from './pages/Sales';
+import ApprovedSales from './pages/ApprovedSales';
+import PostExOrderPage from './pages/PostExOrderPage';
 import Purchases from './pages/Purchases';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
@@ -166,6 +168,22 @@ function AppRoutes() {
           element={
             <RoleBasedRoute allowedRoles={['admin', 'manager']}>
               <SalesFormPage />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="approved-sales" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <ApprovedSales />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="approved-sales/postex-order" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <PostExOrderPage />
             </RoleBasedRoute>
           } 
         />
