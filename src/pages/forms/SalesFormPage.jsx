@@ -752,7 +752,7 @@ const SalesFormPage = ({ onSuccess }) => {
           <div className="card p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Customer Name *
                 </label>

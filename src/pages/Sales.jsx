@@ -19,7 +19,7 @@ const Sales = () => {
     totalReturns: 0,
     totalRevenue: 0
   });
-  
+
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -54,23 +54,23 @@ const Sales = () => {
       const isSearching = searchTerm.trim().length > 0;
       const isAllTime = timeFilter === 'all';
       const showAllResults = isSearching || isAllTime;
-      
+
       const pageSize = showAllResults ? 10000 : itemsPerPage; // Show all results when searching or "All Time"
       const params = new URLSearchParams({
         page: showAllResults ? '1' : currentPage.toString(), // Always page 1 when showing all results
         limit: pageSize.toString()
       });
-      
+
       // Add search to backend if provided
       if (searchTerm.trim()) {
         params.append('search', searchTerm.trim());
       }
-      
+
       // Add time filter to backend
       if (timeFilter !== 'all') {
         const now = new Date();
         let startDate;
-        
+
         switch (timeFilter) {
           case 'day':
             startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -100,16 +100,16 @@ const Sales = () => {
           default:
             break;
         }
-        
+
         if (timeFilter !== 'custom' && startDate) {
           params.append('startDate', startDate.toISOString());
         }
       }
-      
+
       const response = await api.get(`/sales?${params.toString()}`);
       let salesData = response.data?.salesOrders || [];
       const totalFromServer = response.data?.total || 0;
-      
+
       // Check for temporary sales in localStorage (newly created ones)
       const tempSales = JSON.parse(localStorage.getItem('tempSales') || '[]');
       if (tempSales.length > 0) {
@@ -117,11 +117,11 @@ const Sales = () => {
         const apiSaleIds = new Set(salesData.map(s => s._id));
         const newTempSales = tempSales.filter(s => !apiSaleIds.has(s._id));
         salesData = [...newTempSales, ...salesData];
-        
+
         // Clear temporary sales after merging
         localStorage.removeItem('tempSales');
       }
-      
+
       // Apply client-side sorting based on sortFilter
       const sortedSales = [...salesData].sort((a, b) => {
         switch (sortFilter) {
@@ -139,10 +139,10 @@ const Sales = () => {
             return new Date(b.orderDate || b.createdAt || b._id) - new Date(a.orderDate || a.createdAt || a._id);
         }
       });
-      
+
       // Always use real data from API, even if empty
       setSales(sortedSales);
-      
+
       // For stats, we need to fetch aggregated data separately for accuracy
       // For now, calculate from current page (approximate) or fetch stats endpoint if available
       // Note: For large datasets, stats should come from separate aggregation endpoint
@@ -155,15 +155,15 @@ const Sales = () => {
           .filter(sale => sale.status !== 'returned' && sale.status !== 'expected_return' && sale.status !== 'cancelled')
           .reduce((sum, sale) => sum + (sale.totalAmount || 0), 0)
       };
-      
+
       // Store total for pagination
       setTotalSalesCount(totalFromServer);
-      
+
       setSalesStats(stats);
-      
+
     } catch (error) {
       console.error('Error fetching sales:', error);
-      
+
       // Show empty state instead of dummy data
       setSales([]);
       setSalesStats({
@@ -172,9 +172,9 @@ const Sales = () => {
         totalReturns: 0,
         totalRevenue: 0
       });
-      
+
       toast.error('Failed to load sales orders. Please check your connection.');
-      
+
       /* Removed dummy data - using real API data only
       const dummySales = [
         {
@@ -335,18 +335,18 @@ const Sales = () => {
             });
             return newStats;
           });
-          
+
           // Highlight the most recent sale
           if (newSales[0]) {
             setNewlyAddedSaleId(newSales[0]._id);
             setTimeout(() => setNewlyAddedSaleId(null), 3000);
           }
-          
+
           return [...newSales, ...prev];
         }
         return prev;
       });
-      
+
       // Clear temporary sales after adding to state
       localStorage.removeItem('tempSales');
     }
@@ -377,15 +377,15 @@ const Sales = () => {
   // Filter sales by time period
   const getFilteredSales = () => {
     let filteredSales = sales;
-    
+
     // Note: Search filter is now handled server-side when searchTerm is provided
     // Client-side search is only used when server-side pagination is not active
-    
+
     // Apply time filter
     if (timeFilter !== 'all') {
       const now = new Date();
       let filterDate;
-      
+
       switch (timeFilter) {
         case 'day':
           filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -418,12 +418,12 @@ const Sales = () => {
         default:
           break;
       }
-      
+
       if (timeFilter !== 'custom') {
         filteredSales = sales.filter(sale => new Date(sale.createdAt) >= filterDate);
       }
     }
-    
+
     // Apply sort filter
     const sortedSales = [...filteredSales].sort((a, b) => {
       switch (sortFilter) {
@@ -441,7 +441,7 @@ const Sales = () => {
           return new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id);
       }
     });
-    
+
     return sortedSales;
   };
 
@@ -450,14 +450,14 @@ const Sales = () => {
   let filteredSales = sales;
   const isAllTime = timeFilter === 'all';
   const isSearching = searchTerm.trim().length > 0;
-  
+
   // Only apply client-side time filters if not "All Time" and not searching
   // (Backend handles time filters when searching, but we still need client-side for non-search)
   if (!isAllTime && !isSearching) {
     // Apply client-side time filter
     const now = new Date();
     let filterDate;
-    
+
     switch (timeFilter) {
       case 'day':
         filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -508,7 +508,7 @@ const Sales = () => {
       default:
         break;
     }
-    
+
     // Apply client-side sorting
     filteredSales = [...filteredSales].sort((a, b) => {
       switch (sortFilter) {
@@ -545,7 +545,7 @@ const Sales = () => {
       }
     });
   }
-  
+
   // When "All Time" or searching, show ALL results (no pagination)
   // Otherwise, use pagination
   const currentSales = filteredSales;
@@ -606,8 +606,8 @@ const Sales = () => {
     const { exportSales } = await import('../utils/exportUtils');
     // filteredSales contains ALL search results when searching, or all filtered results when not searching
     const dataToExport = filteredSales.length > 0 ? filteredSales : sales;
-    const filename = searchTerm.trim() 
-      ? `sales-search-${searchTerm.trim().replace(/[^a-zA-Z0-9]/g, '-')}` 
+    const filename = searchTerm.trim()
+      ? `sales-search-${searchTerm.trim().replace(/[^a-zA-Z0-9]/g, '-')}`
       : 'sales';
     return exportSales(dataToExport, format, filename);
   };
@@ -626,20 +626,20 @@ const Sales = () => {
       if (confirmAction === 'returnReceived') {
         // Handle return received logic
         const loadingToast = toast.loading('Processing return...');
-        
+
         const expectedReturnsRes = await api.get('/expected-returns');
         const expectedReturn = expectedReturnsRes.data.expectedReturns?.find(
           (er) => ((er.salesOrderId && (er.salesOrderId._id || er.salesOrderId)) === confirmSale._id) && er.status === 'pending'
         );
-        
+
         if (expectedReturn) {
           await api.post(`/expected-returns/${expectedReturn._id}/receive`);
-          
+
           toast.dismiss(loadingToast);
           toast.success('Return received! Stock added back to warehouse ✅', {
             duration: 5000
           });
-          
+
           fetchSales();
         } else {
           toast.dismiss(loadingToast);
@@ -664,19 +664,19 @@ const Sales = () => {
     let loadingToast;
     try {
       loadingToast = toast.loading(`Updating QC status to ${qcStatus}...`);
-      
+
       const response = await api.put(`/sales/${saleId}/qc-status`, { qcStatus });
-      
+
       // Update local state
       setSales(prevSales =>
         prevSales.map(sale =>
           sale._id === saleId ? { ...sale, qcStatus: qcStatus } : sale
         )
       );
-      
+
       toast.dismiss(loadingToast);
       toast.success(`QC status updated to ${qcStatus}!`);
-      
+
       fetchSales(); // Refresh to get updated data
     } catch (error) {
       console.error('Error updating QC status:', error);
@@ -693,18 +693,18 @@ const Sales = () => {
     let loadingToast;
     try {
       loadingToast = toast.loading(`Updating status to ${newStatus}...`);
-      
+
       const response = await api.patch(`/sales/${saleId}/status`, { status: newStatus });
-      
+
       // Update local state
       setSales(prevSales =>
         prevSales.map(sale =>
           sale._id === saleId ? { ...sale, status: newStatus } : sale
         )
       );
-      
+
       toast.dismiss(loadingToast);
-      
+
       // Show special message based on status
       if (newStatus === 'expected_return') {
         const warehouseName = response.data.warehouseName || 'warehouse';
@@ -726,7 +726,7 @@ const Sales = () => {
       } else {
         toast.success(`Status updated to ${newStatus}!`);
       }
-      
+
     } catch (error) {
       console.error('Error updating status:', error);
       console.error('Error details:', {
@@ -736,11 +736,11 @@ const Sales = () => {
         saleId,
         newStatus
       });
-      
+
       if (loadingToast) {
         toast.dismiss(loadingToast);
       }
-      
+
       const errorMessage = error.response?.data?.error || error.message || 'Failed to update status';
       toast.error(errorMessage);
     }
@@ -762,12 +762,12 @@ const Sales = () => {
   const handleDeleteSale = async (saleId) => {
     try {
       const loadingToast = toast.loading('Deleting sales order...');
-      
+
       await api.delete(`/sales/${saleId}`);
-      
+
       toast.dismiss(loadingToast);
       toast.success('Sales order deleted successfully!');
-      
+
       // Refresh sales list
       fetchSales();
     } catch (error) {
@@ -782,38 +782,38 @@ const Sales = () => {
     let loadingToast;
     try {
       loadingToast = toast.loading('Generating delivery note...');
-      
+
       // Import jsPDF
       const jsPDF = (await import('jspdf')).default;
-      
+
       // Import autoTable plugin - this extends jsPDF prototype
       await import('jspdf-autotable');
-      
+
       const doc = new jsPDF();
-      
+
       // Verify autoTable is available
       if (typeof doc.autoTable !== 'function') {
         console.error('autoTable not available on jsPDF instance');
         throw new Error('PDF generation library not loaded properly. Please refresh the page.');
       }
-      
+
       // Header
       doc.setFontSize(20);
       doc.setTextColor(59, 130, 246); // Blue color
       doc.text('DELIVERY NOTE', 105, 20, { align: 'center' });
-      
+
       // Horizontal line
       doc.setDrawColor(59, 130, 246);
       doc.setLineWidth(0.5);
       doc.line(20, 25, 190, 25);
-      
+
       // Order Information
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       doc.text(`Order Number: ${sale.orderNumber || 'N/A'}`, 20, 35);
       doc.text(`Order Date: ${sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : 'N/A'}`, 20, 42);
       doc.text(`Status: ${(sale.status || 'pending').toUpperCase()}`, 20, 49);
-      
+
       // Customer Information
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
@@ -823,7 +823,7 @@ const Sales = () => {
       doc.text(`Name: ${sale.customerInfo?.name || sale.customerName || 'N/A'}`, 20, 67);
       doc.text(`Email: ${sale.customerInfo?.email || 'N/A'}`, 20, 74);
       doc.text(`Phone: ${sale.customerInfo?.phone || 'N/A'}`, 20, 81);
-      
+
       // Delivery Address
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
@@ -834,13 +834,13 @@ const Sales = () => {
       doc.text(`${deliveryAddr.street || 'N/A'}`, 20, 99);
       doc.text(`${deliveryAddr.city || 'N/A'}, ${deliveryAddr.state || 'N/A'} ${deliveryAddr.zipCode || ''}`, 20, 106);
       doc.text(`${deliveryAddr.country || 'N/A'}`, 20, 113);
-      
+
       // Items Table
       const tableData = sale.items?.map(item => {
         const unitPrice = parseFloat(item.unitPrice) || 0;
         const quantity = parseInt(item.quantity) || 0;
         const total = quantity * unitPrice;
-        
+
         return [
           item.productId?.name || item.productName || 'Unknown Product',
           item.variantName || '-',
@@ -849,7 +849,7 @@ const Sales = () => {
           `PKR ${total.toFixed(2)}`
         ];
       }) || [];
-      
+
       doc.autoTable({
         startY: 125,
         head: [['Product', 'Variant', 'Quantity', 'Unit Price', 'Total']],
@@ -867,13 +867,13 @@ const Sales = () => {
           fillColor: [249, 250, 251]
         }
       });
-      
+
       // Total
       const finalY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
       doc.text(`Total Amount: PKR ${sale.totalAmount?.toLocaleString() || '0'}`, 20, finalY);
-      
+
       // Notes
       if (sale.notes) {
         doc.setFontSize(10);
@@ -882,28 +882,28 @@ const Sales = () => {
         doc.setFont(undefined, 'normal');
         doc.text(sale.notes, 20, finalY + 17, { maxWidth: 170 });
       }
-      
+
       // Footer
       doc.setFontSize(8);
       doc.setTextColor(128, 128, 128);
       doc.text('Thank you for your business!', 105, 280, { align: 'center' });
       doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, 285, { align: 'center' });
-      
+
       // Save PDF
       doc.save(`Delivery-Note-${sale.orderNumber}.pdf`);
-      
+
       toast.dismiss(loadingToast);
       toast.success('Delivery note downloaded!');
-      
+
     } catch (error) {
       console.error('Error generating delivery note:', error);
       console.error('Error details:', error.message);
       console.error('Sale data:', sale);
-      
+
       if (loadingToast) {
         toast.dismiss(loadingToast);
       }
-      
+
       toast.error(`Failed to generate delivery note: ${error.message}`);
     }
   };
@@ -916,17 +916,17 @@ const Sales = () => {
   if (isNew) {
     return (
       <div className="max-w-3xl mx-auto">
-        <SalesFormPage 
+        <SalesFormPage
           onSuccess={(newSale) => {
             // Add the new sale to state immediately
             setSales(prev => [newSale, ...prev]);
-            
+
             // Highlight the newly added sale
             setNewlyAddedSaleId(newSale._id);
-            
+
             // Clear highlight after 3 seconds
             setTimeout(() => setNewlyAddedSaleId(null), 3000);
-            
+
             // Update stats immediately
             setSalesStats(prev => ({
               totalSales: prev.totalSales + 1,
@@ -934,9 +934,9 @@ const Sales = () => {
               totalReturns: prev.totalReturns + (newSale.status === 'returned' ? 1 : 0),
               totalRevenue: prev.totalRevenue + (newSale.totalAmount || 0)
             }));
-            
+
             navigate('/sales');
-          }} 
+          }}
         />
       </div>
     );
@@ -950,7 +950,7 @@ const Sales = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sales Orders</h1>
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your sales and orders</p>
         </div>
-        
+
         {/* Controls Section - Full width on mobile */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap w-full sm:w-auto">
           {/* View Toggle - Hidden for agents */}
@@ -958,11 +958,10 @@ const Sales = () => {
             <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('list')}
-                className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
-                  viewMode === 'list'
+                className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${viewMode === 'list'
                     ? 'bg-white text-blue-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
+                  }`}
                 title="List View"
               >
                 <List className="h-4 w-4 mr-1" />
@@ -970,11 +969,10 @@ const Sales = () => {
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
-                  viewMode === 'table'
+                className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${viewMode === 'table'
                     ? 'bg-white text-blue-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
+                  }`}
                 title="Table View"
               >
                 <Table2 className="h-4 w-4 mr-1" />
@@ -982,8 +980,8 @@ const Sales = () => {
               </button>
             </div>
           )}
-          
-          <button 
+
+          <button
             onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center px-3 py-1.5 sm:py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm whitespace-nowrap disabled:opacity-50"
@@ -992,7 +990,7 @@ const Sales = () => {
             <RefreshCw className={`h-4 w-4 mr-1 sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
-          <button 
+          <button
             onClick={fetchDuplicatePhones}
             disabled={loadingDuplicates}
             className="flex items-center px-3 py-1.5 sm:py-2 text-orange-600 hover:text-orange-900 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors text-sm whitespace-nowrap disabled:opacity-50"
@@ -1012,8 +1010,8 @@ const Sales = () => {
               buttonText="Export"
             />
           )}
-          <button 
-            className="btn-primary flex items-center flex-1 sm:flex-initial justify-center" 
+          <button
+            className="btn-primary flex items-center flex-1 sm:flex-initial justify-center"
             onClick={() => navigate('/sales/new')}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -1032,67 +1030,67 @@ const Sales = () => {
             className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
             onClick={() => handleCardClick('total')}
           >
-          <div className="flex items-center">
-            <div className="p-3 bg-green-500 rounded-lg mr-4">
-              <Truck className="h-6 w-6 text-white" />
+            <div className="flex items-center">
+              <div className="p-3 bg-green-500 rounded-lg mr-4">
+                <Truck className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Sales</p>
+                <p className="text-2xl font-bold text-gray-900">{salesStats.totalSales}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Sales</p>
-              <p className="text-2xl font-bold text-gray-900">{salesStats.totalSales}</p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
-          onClick={() => handleCardClick('delivered')}
-        >
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-500 rounded-lg mr-4">
-              <TrendingUp className="h-6 w-6 text-white" />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            onClick={() => handleCardClick('delivered')}
+          >
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-500 rounded-lg mr-4">
+                <TrendingUp className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Delivered</p>
+                <p className="text-2xl font-bold text-gray-900">{salesStats.totalDelivered}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Delivered</p>
-              <p className="text-2xl font-bold text-gray-900">{salesStats.totalDelivered}</p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
-          onClick={() => handleCardClick('returns')}
-        >
-          <div className="flex items-center">
-            <div className="p-3 bg-red-500 rounded-lg mr-4">
-              <TrendingUp className="h-6 w-6 text-white" />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            onClick={() => handleCardClick('returns')}
+          >
+            <div className="flex items-center">
+              <div className="p-3 bg-red-500 rounded-lg mr-4">
+                <TrendingUp className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Returns</p>
+                <p className="text-2xl font-bold text-gray-900">{salesStats.totalReturns}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Returns</p>
-              <p className="text-2xl font-bold text-gray-900">{salesStats.totalReturns}</p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
-          onClick={() => handleCardClick('revenue')}
-        >
-          <div className="flex items-center">
-            <div className="p-3 bg-purple-500 rounded-lg mr-4">
-              <DollarSign className="h-6 w-6 text-white" />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            onClick={() => handleCardClick('revenue')}
+          >
+            <div className="flex items-center">
+              <div className="p-3 bg-purple-500 rounded-lg mr-4">
+                <DollarSign className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-2xl font-bold text-gray-900">PKR {salesStats.totalRevenue.toLocaleString()}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">PKR {salesStats.totalRevenue.toLocaleString()}</p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
         </div>
       )}
 
@@ -1184,9 +1182,9 @@ const Sales = () => {
             <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500 text-lg">No sales found</p>
             <p className="text-gray-400 text-sm mt-2">
-              {timeFilter === 'all' ? 'Start by creating your first sales order to see real data' : 
-               timeFilter === 'custom' ? `No sales found for ${selectedDate ? new Date(selectedDate).toLocaleDateString() : 'the selected date'}` :
-               `No sales found for the selected ${timeFilter} period`}
+              {timeFilter === 'all' ? 'Start by creating your first sales order to see real data' :
+                timeFilter === 'custom' ? `No sales found for ${selectedDate ? new Date(selectedDate).toLocaleDateString() : 'the selected date'}` :
+                  `No sales found for the selected ${timeFilter} period`}
             </p>
             <button
               onClick={() => navigate('/sales/new')}
@@ -1271,34 +1269,53 @@ const Sales = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-semibold text-gray-900">{sale.orderNumber}</div>
                           </td>
+
                           {/* Sale Date */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {sale.orderDate ? new Date(sale.orderDate).toLocaleString() :
-                               '-'}
+                              {sale.orderDate ? new Date(sale.orderDate).toLocaleString() : '-'}
                             </div>
                           </td>
+
                           {/* System Timestamp */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {sale.timestamp ? new Date(sale.timestamp).toLocaleString() : 
-                               sale.createdAt ? new Date(sale.createdAt).toLocaleString() : '-'}
+                              {sale.timestamp ? new Date(sale.timestamp).toLocaleString() :
+                                sale.createdAt ? new Date(sale.createdAt).toLocaleString() : '-'}
                             </div>
                           </td>
+
                           {/* Customer Name */}
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{sale.customerName || sale.customerInfo?.name || 'N/A'}</div>
+                            <div
+                              className="text-sm text-gray-900 truncate max-w-[120px]"
+                              title={sale.customerName || sale.customerInfo?.name || 'N/A'}
+                            >
+                              {(() => {
+                                const customerName = sale.customerName || sale.customerInfo?.name || 'N/A';
+                                return customerName.length > 10 ? `${customerName.substring(0, 10)}...` : customerName;
+                              })()}
+                            </div>
                           </td>
+
                           {/* Phone Number */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{sale.customerInfo?.phone || '-'}</div>
                           </td>
+
                           {/* Agent Name */}
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {sale.agentName || sale.agent_name || sale.createdBy?.firstName || sale.createdBy?.email || '-'}
+                            <div
+                              className="text-sm text-gray-900 truncate max-w-[120px]"
+                              title={sale.agentName || sale.agent_name || sale.createdBy?.firstName || sale.createdBy?.email || '-'}
+                            >
+                              {(() => {
+                                const agentName = sale.agentName || sale.agent_name || sale.createdBy?.firstName || sale.createdBy?.email || '-';
+                                return agentName.length > 10 ? `${agentName.substring(0, 10)}...` : agentName;
+                              })()}
                             </div>
                           </td>
+
                           {/* Product Name */}
                           <td className="px-6 py-4">
                             <div className="text-sm text-gray-900">
@@ -1306,11 +1323,16 @@ const Sales = () => {
                                 sale.items.slice(0, 3).map((item, idx) => {
                                   const productName = item.productId?.name || 'Unknown';
                                   const variantName = item.variantName ? ` - ${item.variantName}` : '';
+                                  const fullProductName = productName + variantName;
+
                                   return (
                                     <div key={idx}>
                                       {idx > 0 && <hr className="my-2 border-gray-300" />}
-                                      <div className="text-sm text-gray-600 mb-1">
-                                        {productName}{variantName}
+                                      <div
+                                        className="text-sm text-gray-600 mb-1 truncate max-w-[200px]"
+                                        title={fullProductName}
+                                      >
+                                        {fullProductName.length > 10 ? `${fullProductName.substring(0, 10)}...` : fullProductName}
                                       </div>
                                     </div>
                                   );
@@ -1323,6 +1345,7 @@ const Sales = () => {
                               )}
                             </div>
                           </td>
+
                           {/* Quantity */}
                           <td className="px-6 py-4">
                             <div className="text-sm text-gray-900">
@@ -1345,64 +1368,84 @@ const Sales = () => {
                               )}
                             </div>
                           </td>
+
                           {/* Price */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-semibold text-green-600">
                               Rs {sale.totalAmount?.toLocaleString() || '0'}
                             </div>
                           </td>
+
                           {/* Customer Address */}
                           <td className="px-6 py-4" style={{ minWidth: '250px', width: '300px' }}>
                             <div className="text-sm text-gray-900">
                               {sale.deliveryAddress ? (
                                 <>
-                                  {sale.deliveryAddress.street && <div>{sale.deliveryAddress.street}</div>}
-                                  {sale.deliveryAddress.city && <div className="text-xs text-gray-600">{sale.deliveryAddress.city}</div>}
-                                  {sale.deliveryAddress.country && <div className="text-xs text-gray-600">{sale.deliveryAddress.country}</div>}
+                                  {sale.deliveryAddress.street && (
+                                    <div
+                                      className="truncate max-w-[250px]"
+                                      title={sale.deliveryAddress.street}
+                                    >
+                                      {sale.deliveryAddress.street.length > 10 ? `${sale.deliveryAddress.street.substring(0, 10)}...` : sale.deliveryAddress.street}
+                                    </div>
+                                  )}
+                                  {sale.deliveryAddress.city && (
+                                    <div
+                                      className="text-xs text-gray-600 truncate max-w-[250px]"
+                                      title={sale.deliveryAddress.city}
+                                    >
+                                      {sale.deliveryAddress.city.length > 10 ? `${sale.deliveryAddress.city.substring(0, 10)}...` : sale.deliveryAddress.city}
+                                    </div>
+                                  )}
+                                  {sale.deliveryAddress.country && (
+                                    <div className="text-xs text-gray-600">{sale.deliveryAddress.country}</div>
+                                  )}
                                 </>
                               ) : (
                                 <span className="text-gray-400">-</span>
                               )}
                             </div>
                           </td>
+
                           {/* Notes */}
                           <td className="px-6 py-4">
                             <div className="text-sm text-gray-900 max-w-xs truncate" title={sale.notes}>
-                              {sale.notes || '-'}
+                              {sale.notes ? (sale.notes.length > 10 ? `${sale.notes.substring(0, 10)}...` : sale.notes) : '-'}
                             </div>
                           </td>
+
                           {/* CN Number - Visible to all roles */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{sale.customerInfo?.cnNumber || '-'}</div>
                           </td>
+
                           {/* Status - Hidden for agents */}
                           {user?.role !== 'agent' && (
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                                sale.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                                sale.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
-                                sale.status === 'returned' ? 'bg-red-100 text-red-800' :
-                                sale.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
-                                sale.status === 'dispatched' || sale.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
-                                sale.status === 'confirmed' ? 'bg-cyan-100 text-cyan-800' :
-                                sale.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {sale.status === 'expected_return' ? 'Expected Return' : 
-                                 sale.status === 'confirmed_delivered' ? 'Confirmed Delivered' : 
-                                 sale.status || 'Pending'}
+                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${sale.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                                  sale.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
+                                    sale.status === 'returned' ? 'bg-red-100 text-red-800' :
+                                      sale.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
+                                        sale.status === 'dispatched' || sale.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
+                                          sale.status === 'confirmed' ? 'bg-cyan-100 text-cyan-800' :
+                                            sale.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
+                                              'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                {sale.status === 'expected_return' ? 'Expected Return' :
+                                  sale.status === 'confirmed_delivered' ? 'Confirmed Delivered' :
+                                    sale.status || 'Pending'}
                               </span>
                             </td>
                           )}
+
                           {/* QC Status - Hidden for agents */}
                           {user?.role !== 'agent' && (
                             <td className="px-6 py-4 whitespace-nowrap">
                               {sale.qcStatus ? (
-                                <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                                  sale.qcStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                                  sale.qcStatus === 'rejected' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
+                                <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${sale.qcStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                                    sale.qcStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
+                                  }`}>
                                   {sale.qcStatus}
                                 </span>
                               ) : (
@@ -1410,133 +1453,135 @@ const Sales = () => {
                               )}
                             </td>
                           )}
+
                           {/* Workflow Actions - Hidden for agents */}
                           {user?.role !== 'agent' && (
                             <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                              {/* QC Buttons - Only show for admin and manager, not for agents */}
-                              {user?.role !== 'agent' && sale.status === 'pending' && sale.qcStatus !== 'rejected' && (
-                                <>
-                                  {(!sale.qcStatus || sale.qcStatus === 'pending') && (
-                                    <>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleQCStatusUpdate(sale._id, 'approved');
-                                        }}
-                                        className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                        title="Approve QC"
-                                      >
-                                        <CheckCircle className="w-3 h-3 mr-1" />
-                                        QC Approved
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleQCStatusUpdate(sale._id, 'rejected');
-                                        }}
-                                        className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                        title="Reject QC"
-                                      >
-                                        <XCircle className="w-3 h-3 mr-1" />
-                                        QC Reject
-                                      </button>
-                                    </>
-                                  )}
-                                </>
-                              )}
-                              
-                              {/* Dispatch Button - Only show for admin and manager, not for agents */}
-                              {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus === 'approved' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    showConfirmation(sale, 'dispatch');
-                                  }}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                  title="Mark as Dispatched"
-                                >
-                                  <Truck className="w-3 h-3 mr-1" />
-                                  Dispatch
-                                </button>
-                              )}
-                              
-                              {/* Delivered Button - Only for admin and manager, not for agents */}
-                              {user?.role !== 'agent' && (sale.status === 'dispatch' || sale.status === 'dispatched') && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    showConfirmation(sale, 'delivered');
-                                  }}
-                                  className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                  title="Mark as Delivered"
-                                >
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Delivered
-                                </button>
-                              )}
-                              
-                              {/* Confirm Delivered and Expected Return - Only for admin and manager, not for agents */}
-                              {user?.role !== 'agent' && sale.status === 'delivered' && (
-                                <>
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                {/* QC Buttons - Only show for admin and manager, not for agents */}
+                                {user?.role !== 'agent' && sale.status === 'pending' && sale.qcStatus !== 'rejected' && (
+                                  <>
+                                    {(!sale.qcStatus || sale.qcStatus === 'pending') && (
+                                      <>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleQCStatusUpdate(sale._id, 'approved');
+                                          }}
+                                          className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                          title="Approve QC"
+                                        >
+                                          <CheckCircle className="w-3 h-3 mr-1" />
+                                          QC Approved
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleQCStatusUpdate(sale._id, 'rejected');
+                                          }}
+                                          className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                          title="Reject QC"
+                                        >
+                                          <XCircle className="w-3 h-3 mr-1" />
+                                          QC Reject
+                                        </button>
+                                      </>
+                                    )}
+                                  </>
+                                )}
+
+                                {/* Dispatch Button - Only show for admin and manager, not for agents */}
+                                {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus === 'approved' && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      showConfirmation(sale, 'confirmed_delivered');
+                                      showConfirmation(sale, 'dispatch');
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                    title="Mark as Dispatched"
+                                  >
+                                    <Truck className="w-3 h-3 mr-1" />
+                                    Dispatch
+                                  </button>
+                                )}
+
+                                {/* Delivered Button - Only for admin and manager, not for agents */}
+                                {user?.role !== 'agent' && (sale.status === 'dispatch' || sale.status === 'dispatched') && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      showConfirmation(sale, 'delivered');
                                     }}
                                     className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                    title="Confirm Delivered - Move to confirmed delivered column in warehouse"
+                                    title="Mark as Delivered"
                                   >
                                     <CheckCircle className="w-3 h-3 mr-1" />
-                                    Confirm Delivered
+                                    Delivered
                                   </button>
+                                )}
+
+                                {/* Confirm Delivered and Expected Return - Only for admin and manager, not for agents */}
+                                {user?.role !== 'agent' && sale.status === 'delivered' && (
+                                  <>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        showConfirmation(sale, 'confirmed_delivered');
+                                      }}
+                                      className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                      title="Confirm Delivered - Move to confirmed delivered column in warehouse"
+                                    >
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Confirm Delivered
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        showConfirmation(sale, 'expected_return');
+                                      }}
+                                      className="bg-purple-600 hover:bg-purple-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                      title="Mark as Expected Return - Product will appear in Expected Returns module"
+                                    >
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      Expected Return
+                                    </button>
+                                  </>
+                                )}
+
+                                {/* Return Received - Only for admin and manager, not for agents */}
+                                {user?.role !== 'agent' && sale.status === 'expected_return' && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      showConfirmation(sale, 'expected_return');
+                                      showConfirmation(sale, 'returnReceived');
                                     }}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                    title="Mark as Expected Return - Product will appear in Expected Returns module"
+                                    className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                    title="Confirm that return has been received back to warehouse"
                                   >
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    Expected Return
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Return Received
                                   </button>
-                                </>
-                              )}
-                              
-                              {/* Return Received - Only for admin and manager, not for agents */}
-                              {user?.role !== 'agent' && sale.status === 'expected_return' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    showConfirmation(sale, 'returnReceived');
-                                  }}
-                                  className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                  title="Confirm that return has been received back to warehouse"
-                                >
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Return Received
-                                </button>
-                              )}
-                              
-                              {sale.qcStatus === 'rejected' && (
-                                <span className="text-xs text-red-600 font-medium">QC Rejected</span>
-                              )}
-                              
-                              {sale.status === 'confirmed_delivered' && (
-                                <span className="text-xs text-green-600 font-medium">Confirmed Delivered</span>
-                              )}
-                              
-                              {sale.status === 'returned' && (
-                                <span className="text-xs text-green-600 font-medium">Return Completed</span>
-                              )}
-                              
-                              {sale.status !== 'pending' && sale.status !== 'dispatch' && sale.status !== 'dispatched' && sale.status !== 'delivered' && sale.status !== 'expected_return' && sale.qcStatus !== 'pending' && sale.qcStatus !== 'approved' && sale.qcStatus !== 'rejected' && (
-                                <span className="text-xs text-gray-400">-</span>
-                              )}
-                            </div>
+                                )}
+
+                                {sale.qcStatus === 'rejected' && (
+                                  <span className="text-xs text-red-600 font-medium">QC Rejected</span>
+                                )}
+
+                                {sale.status === 'confirmed_delivered' && (
+                                  <span className="text-xs text-green-600 font-medium">Confirmed Delivered</span>
+                                )}
+
+                                {sale.status === 'returned' && (
+                                  <span className="text-xs text-green-600 font-medium">Return Completed</span>
+                                )}
+
+                                {sale.status !== 'pending' && sale.status !== 'dispatch' && sale.status !== 'dispatched' && sale.status !== 'delivered' && sale.status !== 'expected_return' && sale.qcStatus !== 'pending' && sale.qcStatus !== 'approved' && sale.qcStatus !== 'rejected' && (
+                                  <span className="text-xs text-gray-400">-</span>
+                                )}
+                              </div>
                             </td>
                           )}
+
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <button
@@ -1549,6 +1594,7 @@ const Sales = () => {
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
+
                               {/* Edit button - Only for admin and manager, not for agents - Always enabled but order details are read-only */}
                               {user?.role !== 'agent' && (
                                 <button
@@ -1562,6 +1608,7 @@ const Sales = () => {
                                   <Edit className="w-4 h-4" />
                                 </button>
                               )}
+
                               {/* Delete button - Only for admin and manager, not for agents - Hide after dispatch or QC reject */}
                               {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus !== 'rejected' && (
                                 <button
@@ -1588,360 +1635,357 @@ const Sales = () => {
             ) : (
               // List View
               <div className="space-y-3 sm:space-y-4">
-              {currentSales.map((sale) => (
-              <motion.div
-                key={sale._id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`border rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-300 ${
-                  newlyAddedSaleId === sale._id 
-                    ? 'border-green-500 bg-green-50 shadow-lg ring-2 ring-green-200' 
-                    : 'border-gray-200'
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                      <span className="font-semibold text-gray-900">{sale.orderNumber}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        sale.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                        sale.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
-                        sale.status === 'returned' ? 'bg-red-100 text-red-800' :
-                        sale.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
-                        sale.status === 'dispatched' || sale.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
-                        sale.status === 'confirmed' ? 'bg-cyan-100 text-cyan-800' :
-                        sale.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {sale.status === 'expected_return' ? 'Expected Return' : 
-                         sale.status === 'confirmed_delivered' ? 'Confirmed Delivered' : 
-                         sale.status}
-                      </span>
-                    </div>
-                    {/* View, Edit, Delete Buttons - Left Side */}
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewSale(sale);
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                        title="View Sales Order Details"
-                      >
-                        <Eye className="w-3 h-3 mr-1" />
-                        View
-                      </button>
-                      {/* Edit button - Only for admin and manager, not for agents - Always enabled but order details are read-only */}
-                      {user?.role !== 'agent' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditSale(sale);
-                          }}
-                          className="bg-yellow-600 hover:bg-yellow-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                          title="Edit Sales Order (Order details are read-only)"
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Edit
-                        </button>
-                      )}
-                      {/* Delete button - Only for admin and manager, not for agents - Hide after dispatch or QC reject */}
-                      {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus !== 'rejected' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm(`Are you sure you want to delete ${sale.orderNumber}? This action cannot be undone.`)) {
-                              handleDeleteSale(sale._id);
-                            }
-                          }}
-                          className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                          title="Delete Sales Order"
-                        >
-                          <Trash2 className="w-3 h-3 mr-1" />
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm text-gray-600">
-                      <div className="flex flex-col">
-                        <div className="flex items-center">
-                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                          <span className="truncate">
-                            Sale: {sale.orderDate ? new Date(sale.orderDate).toLocaleString() : '-'}
+                {currentSales.map((sale) => (
+                  <motion.div
+                    key={sale._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`border rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-300 ${newlyAddedSaleId === sale._id
+                        ? 'border-green-500 bg-green-50 shadow-lg ring-2 ring-green-200'
+                        : 'border-gray-200'
+                      }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                          <span className="font-semibold text-gray-900">{sale.orderNumber}</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${sale.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                              sale.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
+                                sale.status === 'returned' ? 'bg-red-100 text-red-800' :
+                                  sale.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
+                                    sale.status === 'dispatched' || sale.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
+                                      sale.status === 'confirmed' ? 'bg-cyan-100 text-cyan-800' :
+                                        sale.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
+                                          'bg-yellow-100 text-yellow-800'
+                            }`}>
+                            {sale.status === 'expected_return' ? 'Expected Return' :
+                              sale.status === 'confirmed_delivered' ? 'Confirmed Delivered' :
+                                sale.status}
                           </span>
                         </div>
-                        <div className="flex items-center mt-1 text-[11px] sm:text-xs text-gray-500">
-                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                          <span className="truncate">
-                            System: {sale.timestamp ? new Date(sale.timestamp).toLocaleString() : (sale.createdAt ? new Date(sale.createdAt).toLocaleString() : '-')}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        <Truck className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                        <span className="truncate">{sale.items?.length || 0} items</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="font-medium truncate">Rs {sale.totalAmount?.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center">
-                        {sale.status === 'delivered' ? <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-600 flex-shrink-0" /> :
-                         sale.status === 'returned' ? <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-red-600 flex-shrink-0" /> :
-                         <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-yellow-600 flex-shrink-0" />}
-                        <span className="capitalize truncate">{sale.status}</span>
-                      </div>
-                    </div>
-                    <div className="mt-2 sm:mt-3">
-                      <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">Items:</p>
-                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                        {sale.items?.slice(0, 3).map((item, index) => {
-                          const productName = item.productId?.name || 'Unknown Product';
-                          const variantName = item.variantName ? ` - ${item.variantName}` : '';
-                          const displayName = `${productName}${variantName}`;
-                          
-                          return (
-                            <span
-                              key={index}
-                              className="px-2 py-0.5 sm:py-1 bg-green-100 text-green-800 rounded-full text-xs truncate max-w-[200px]"
-                              title={`${displayName} (x${item.quantity})`}
+                        {/* View, Edit, Delete Buttons - Left Side */}
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewSale(sale);
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                            title="View Sales Order Details"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View
+                          </button>
+                          {/* Edit button - Only for admin and manager, not for agents - Always enabled but order details are read-only */}
+                          {user?.role !== 'agent' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditSale(sale);
+                              }}
+                              className="bg-yellow-600 hover:bg-yellow-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                              title="Edit Sales Order (Order details are read-only)"
                             >
-                              {displayName} (x{item.quantity})
-                            </span>
-                          );
-                        })}
-                        {sale.items?.length > 3 && (
-                          <span className="px-2 py-0.5 sm:py-1 bg-gray-100 text-gray-600 rounded-full text-xs whitespace-nowrap">
-                            +{sale.items.length - 3} more
-                          </span>
-                        )}
+                              <Edit className="w-3 h-3 mr-1" />
+                              Edit
+                            </button>
+                          )}
+                          {/* Delete button - Only for admin and manager, not for agents - Hide after dispatch or QC reject */}
+                          {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus !== 'rejected' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Are you sure you want to delete ${sale.orderNumber}? This action cannot be undone.`)) {
+                                  handleDeleteSale(sale._id);
+                                }
+                              }}
+                              className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                              title="Delete Sales Order"
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm text-gray-600">
+                          <div className="flex flex-col">
+                            <div className="flex items-center">
+                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                              <span className="truncate">
+                                Sale: {sale.orderDate ? new Date(sale.orderDate).toLocaleString() : '-'}
+                              </span>
+                            </div>
+                            <div className="flex items-center mt-1 text-[11px] sm:text-xs text-gray-500">
+                              <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                              <span className="truncate">
+                                System: {sale.timestamp ? new Date(sale.timestamp).toLocaleString() : (sale.createdAt ? new Date(sale.createdAt).toLocaleString() : '-')}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center">
+                            <Truck className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                            <span className="truncate">{sale.items?.length || 0} items</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="font-medium truncate">Rs {sale.totalAmount?.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center">
+                            {sale.status === 'delivered' ? <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-green-600 flex-shrink-0" /> :
+                              sale.status === 'returned' ? <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-red-600 flex-shrink-0" /> :
+                                <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-yellow-600 flex-shrink-0" />}
+                            <span className="capitalize truncate">{sale.status}</span>
+                          </div>
+                        </div>
+                        <div className="mt-2 sm:mt-3">
+                          <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">Items:</p>
+                          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                            {sale.items?.slice(0, 3).map((item, index) => {
+                              const productName = item.productId?.name || 'Unknown Product';
+                              const variantName = item.variantName ? ` - ${item.variantName}` : '';
+                              const displayName = `${productName}${variantName}`;
+
+                              return (
+                                <span
+                                  key={index}
+                                  className="px-2 py-0.5 sm:py-1 bg-green-100 text-green-800 rounded-full text-xs truncate max-w-[200px]"
+                                  title={`${displayName} (x${item.quantity})`}
+                                >
+                                  {displayName} (x{item.quantity})
+                                </span>
+                              );
+                            })}
+                            {sale.items?.length > 3 && (
+                              <span className="px-2 py-0.5 sm:py-1 bg-gray-100 text-gray-600 rounded-full text-xs whitespace-nowrap">
+                                +{sale.items.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="text-right min-w-0 flex-shrink-0 sm:ml-4 mt-3 sm:mt-0">
-                    <div className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
-                      Customer: {sale.customerName || sale.customerInfo?.name || sale.customerId?.name || 'Unknown'}
-                    </div>
-                    <div className="text-xs text-gray-400 mb-2 sm:mb-4">
-                      {sale.deliveryDate ? `Delivered: ${new Date(sale.deliveryDate).toLocaleDateString()}` : 'Not delivered yet'}
-                    </div>
-                    
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-end">
-                      {/* Return Button - Only for admin and manager, not for agents */}
-                      {user?.role !== 'agent' && sale.status === 'expected_return' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            showConfirmation(sale, 'returnReceived');
-                          }}
-                          className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                          title="Confirm that return has been received back to warehouse"
-                        >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Return Received
-                        </button>
-                      )}
-                      
-                      {/* QC Buttons - Only show for admin and manager, not for agents */}
-                      {user?.role !== 'agent' && sale.status === 'pending' && sale.qcStatus !== 'rejected' && (
-                        <>
-                          {(!sale.qcStatus || sale.qcStatus === 'pending') && (
+                      <div className="text-right min-w-0 flex-shrink-0 sm:ml-4 mt-3 sm:mt-0">
+                        <div className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
+                          Customer: {sale.customerName || sale.customerInfo?.name || sale.customerId?.name || 'Unknown'}
+                        </div>
+                        <div className="text-xs text-gray-400 mb-2 sm:mb-4">
+                          {sale.deliveryDate ? `Delivered: ${new Date(sale.deliveryDate).toLocaleDateString()}` : 'Not delivered yet'}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-end">
+                          {/* Return Button - Only for admin and manager, not for agents */}
+                          {user?.role !== 'agent' && sale.status === 'expected_return' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showConfirmation(sale, 'returnReceived');
+                              }}
+                              className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                              title="Confirm that return has been received back to warehouse"
+                            >
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Return Received
+                            </button>
+                          )}
+
+                          {/* QC Buttons - Only show for admin and manager, not for agents */}
+                          {user?.role !== 'agent' && sale.status === 'pending' && sale.qcStatus !== 'rejected' && (
+                            <>
+                              {(!sale.qcStatus || sale.qcStatus === 'pending') && (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQCStatusUpdate(sale._id, 'approved');
+                                    }}
+                                    className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                    title="Approve QC"
+                                  >
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    QC Approved
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQCStatusUpdate(sale._id, 'rejected');
+                                    }}
+                                    className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
+                                    title="Reject QC"
+                                  >
+                                    <XCircle className="w-3 h-3 mr-1" />
+                                    QC Reject
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+
+                          {/* Dispatch Button - Only show for admin and manager, not for agents */}
+                          {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus === 'approved' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showConfirmation(sale, 'dispatch');
+                              }}
+                              className="btn-primary flex items-center text-xs px-2 py-1 whitespace-nowrap"
+                              title="Mark as Dispatched"
+                            >
+                              <Truck className="w-3 h-3 mr-1" />
+                              Dispatch
+                            </button>
+                          )}
+
+                          {/* Delivered Button - Only for admin and manager, not for agents */}
+                          {user?.role !== 'agent' && (sale.status === 'dispatch' || sale.status === 'dispatched') && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showConfirmation(sale, 'delivered');
+                              }}
+                              className="btn-success flex items-center text-xs px-2 py-1 whitespace-nowrap"
+                              title="Mark as Delivered"
+                            >
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Delivered
+                            </button>
+                          )}
+
+                          {/* Confirm Delivered and Expected Return - Only for admin and manager, not for agents */}
+                          {user?.role !== 'agent' && sale.status === 'delivered' && (
                             <>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleQCStatusUpdate(sale._id, 'approved');
+                                  showConfirmation(sale, 'confirmed_delivered');
                                 }}
                                 className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                title="Approve QC"
+                                title="Confirm Delivered - Move to confirmed delivered column in warehouse"
                               >
                                 <CheckCircle className="w-3 h-3 mr-1" />
-                                QC Approved
+                                Confirm Delivered
                               </button>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleQCStatusUpdate(sale._id, 'rejected');
+                                  showConfirmation(sale, 'expected_return');
                                 }}
-                                className="bg-red-600 hover:bg-red-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                                title="Reject QC"
+                                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors"
+                                title="Mark as Expected Return - Product will appear in Expected Returns module"
                               >
-                                <XCircle className="w-3 h-3 mr-1" />
-                                QC Reject
+                                <Clock className="w-3 h-3 mr-1" />
+                                Expected Return
                               </button>
                             </>
                           )}
-                        </>
-                      )}
-                      
-                      {/* Dispatch Button - Only show for admin and manager, not for agents */}
-                      {user?.role !== 'agent' && (sale.status === 'pending' || sale.status === 'confirmed') && sale.qcStatus === 'approved' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            showConfirmation(sale, 'dispatch');
-                          }}
-                          className="btn-primary flex items-center text-xs px-2 py-1 whitespace-nowrap"
-                          title="Mark as Dispatched"
-                        >
-                          <Truck className="w-3 h-3 mr-1" />
-                          Dispatch
-                        </button>
-                      )}
-                      
-                      {/* Delivered Button - Only for admin and manager, not for agents */}
-                      {user?.role !== 'agent' && (sale.status === 'dispatch' || sale.status === 'dispatched') && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            showConfirmation(sale, 'delivered');
-                          }}
-                          className="btn-success flex items-center text-xs px-2 py-1 whitespace-nowrap"
-                          title="Mark as Delivered"
-                        >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Delivered
-                        </button>
-                      )}
-                      
-                      {/* Confirm Delivered and Expected Return - Only for admin and manager, not for agents */}
-                      {user?.role !== 'agent' && sale.status === 'delivered' && (
-                        <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              showConfirmation(sale, 'confirmed_delivered');
-                            }}
-                            className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm whitespace-nowrap"
-                            title="Confirm Delivered - Move to confirmed delivered column in warehouse"
-                          >
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Confirm Delivered
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              showConfirmation(sale, 'expected_return');
-                            }}
-                            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors"
-                            title="Mark as Expected Return - Product will appear in Expected Returns module"
-                          >
-                            <Clock className="w-3 h-3 mr-1" />
-                            Expected Return
-                          </button>
-                        </>
-                      )}
-                      
-                      {sale.status === 'confirmed_delivered' && (
-                        <div className="flex items-center text-xs text-gray-500">
-                          <CheckCircle className="w-3 h-3 mr-1 text-green-600" />
-                          Confirmed Delivered
+
+                          {sale.status === 'confirmed_delivered' && (
+                            <div className="flex items-center text-xs text-gray-500">
+                              <CheckCircle className="w-3 h-3 mr-1 text-green-600" />
+                              Confirmed Delivered
+                            </div>
+                          )}
+
+                          {sale.status === 'returned' && (
+                            <div className="flex items-center text-xs text-gray-500">
+                              <CheckCircle className="w-3 h-3 mr-1 text-green-600" />
+                              Return Completed
+                            </div>
+                          )}
                         </div>
-                      )}
-                      
-                      {sale.status === 'returned' && (
-                        <div className="flex items-center text-xs text-gray-500">
-                          <CheckCircle className="w-3 h-3 mr-1 text-green-600" />
-                          Return Completed
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-            </div>
+                  </motion.div>
+                ))}
+              </div>
             )}
           </>
         )}
 
         {/* Pagination Controls - Only show when not "All Time" and not searching */}
         {showPagination && totalPages > 1 && !loading && filteredSales.length > 0 && (
-            <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 rounded-lg">
-              <div className="flex flex-1 justify-between sm:hidden">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
+          <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 rounded-lg">
+            <div className="flex flex-1 justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  {(() => {
+                    const start = (currentPage - 1) * itemsPerPage + 1;
+                    const total = totalSalesCount || filteredSales.length;
+                    const end = Math.min(currentPage * itemsPerPage, total);
+                    return (
+                      <>
+                        Showing <span className="font-medium">{total === 0 ? 0 : start}</span> to{' '}
+                        <span className="font-medium">{end}</span> of{' '}
+                        <span className="font-medium">{total}</span> results
+                      </>
+                    );
+                  })()}
+                </p>
               </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    {(() => {
-                      const start = (currentPage - 1) * itemsPerPage + 1;
-                      const total = totalSalesCount || filteredSales.length;
-                      const end = Math.min(currentPage * itemsPerPage, total);
+              <div>
+                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  {[...Array(totalPages)].map((_, index) => {
+                    const pageNumber = index + 1;
+                    if (
+                      pageNumber === 1 ||
+                      pageNumber === totalPages ||
+                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                    ) {
                       return (
-                        <>
-                          Showing <span className="font-medium">{total === 0 ? 0 : start}</span> to{' '}
-                          <span className="font-medium">{end}</span> of{' '}
-                          <span className="font-medium">{total}</span> results
-                        </>
-                      );
-                    })()}
-                  </p>
-                </div>
-                <div>
-                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="sr-only">Previous</span>
-                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                    {[...Array(totalPages)].map((_, index) => {
-                      const pageNumber = index + 1;
-                      if (
-                        pageNumber === 1 ||
-                        pageNumber === totalPages ||
-                        (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
-                      ) {
-                        return (
-                          <button
-                            key={pageNumber}
-                            onClick={() => setCurrentPage(pageNumber)}
-                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                              currentPage === pageNumber
-                                ? 'z-10 bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                                : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                        <button
+                          key={pageNumber}
+                          onClick={() => setCurrentPage(pageNumber)}
+                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${currentPage === pageNumber
+                              ? 'z-10 bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                              : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
                             }`}
-                          >
-                            {pageNumber}
-                          </button>
-                        );
-                      } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
-                        return <span key={pageNumber} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300">...</span>;
-                      }
-                      return null;
-                    })}
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="sr-only">Next</span>
-                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </nav>
-                </div>
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                      return <span key={pageNumber} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300">...</span>;
+                    }
+                    return null;
+                  })}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
               </div>
             </div>
+          </div>
         )}
       </div>
 
@@ -1964,7 +2008,7 @@ const Sales = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <p className="text-gray-600 mb-4">
                 {confirmAction === 'dispatch' && `Are you sure you want to dispatch order ${confirmSale?.orderNumber}? This will reserve stock in warehouse.`}
@@ -1973,7 +2017,7 @@ const Sales = () => {
                 {confirmAction === 'expected_return' && `Are you sure you want to mark order ${confirmSale?.orderNumber} as expected return? This will add it to the Expected Returns module.`}
                 {confirmAction === 'returnReceived' && `Are you sure you want to confirm that the return for order ${confirmSale?.orderNumber} has been received back to warehouse?`}
               </p>
-              
+
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => setShowConfirmModal(false)}
@@ -1983,11 +2027,10 @@ const Sales = () => {
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 ${
-                    confirmAction === 'returnReceived' 
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 ${confirmAction === 'returnReceived'
                       ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
                       : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-                  }`}
+                    }`}
                 >
                   {confirmAction === 'dispatch' && 'Dispatch Order'}
                   {confirmAction === 'delivered' && 'Mark as Delivered'}
@@ -2014,7 +2057,7 @@ const Sales = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               {/* Order Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2024,22 +2067,20 @@ const Sales = () => {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Status</h4>
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                    selectedSale.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                    selectedSale.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
-                    selectedSale.status === 'returned' ? 'bg-red-100 text-red-800' :
-                    selectedSale.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
-                    selectedSale.status === 'dispatched' || selectedSale.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
+                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${selectedSale.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                      selectedSale.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
+                        selectedSale.status === 'returned' ? 'bg-red-100 text-red-800' :
+                          selectedSale.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
+                            selectedSale.status === 'dispatched' || selectedSale.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'
+                    }`}>
                     {selectedSale.status}
                   </span>
                   {selectedSale.qcStatus && (
-                    <span className={`ml-2 inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                      selectedSale.qcStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                      selectedSale.qcStatus === 'rejected' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`ml-2 inline-flex px-2 py-1 rounded-full text-xs font-medium ${selectedSale.qcStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                        selectedSale.qcStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                      }`}>
                       QC: {selectedSale.qcStatus}
                     </span>
                   )}
@@ -2191,7 +2232,7 @@ const Sales = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6">
               {loadingDuplicates ? (
                 <div className="flex items-center justify-center py-12">
@@ -2212,11 +2253,10 @@ const Sales = () => {
                           <div className="flex items-center gap-3 mb-2">
                             <Phone className="h-5 w-5 text-orange-600" />
                             <h4 className="text-lg font-semibold text-gray-900">{duplicate.phoneNumber}</h4>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              duplicate.isSameCustomer 
-                                ? 'bg-blue-100 text-blue-800' 
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${duplicate.isSameCustomer
+                                ? 'bg-blue-100 text-blue-800'
                                 : 'bg-red-100 text-red-800'
-                            }`}>
+                              }`}>
                               {duplicate.isSameCustomer ? 'Same Customer' : `${duplicate.uniqueCustomers} Different Customers`}
                             </span>
                           </div>
@@ -2274,15 +2314,15 @@ const Sales = () => {
                             <tbody className="bg-white divide-y divide-gray-200">
                               {duplicate.orders.map((order, orderIdx) => (
                                 <tr key={orderIdx} className="hover:bg-gray-50">
-                                  <td className="px-3 py-2 text-sm font-medium text-blue-600 cursor-pointer" 
-                                      onClick={() => {
-                                        const sale = sales.find(s => s.orderNumber === order.orderNumber);
-                                        if (sale) {
-                                          setSelectedSale(sale);
-                                          setShowDuplicatePhoneModal(false);
-                                          setShowViewModal(true);
-                                        }
-                                      }}>
+                                  <td className="px-3 py-2 text-sm font-medium text-blue-600 cursor-pointer"
+                                    onClick={() => {
+                                      const sale = sales.find(s => s.orderNumber === order.orderNumber);
+                                      if (sale) {
+                                        setSelectedSale(sale);
+                                        setShowDuplicatePhoneModal(false);
+                                        setShowViewModal(true);
+                                      }
+                                    }}>
                                     {order.orderNumber}
                                   </td>
                                   <td className="px-3 py-2 text-sm text-gray-900">{order.customerName}</td>
@@ -2293,14 +2333,13 @@ const Sales = () => {
                                     Rs {order.totalAmount?.toLocaleString()}
                                   </td>
                                   <td className="px-3 py-2 text-sm">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                                      order.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
-                                      order.status === 'returned' ? 'bg-red-100 text-red-800' :
-                                      order.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
-                                      order.status === 'dispatched' || order.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
-                                      'bg-yellow-100 text-yellow-800'
-                                    }`}>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                                        order.status === 'confirmed_delivered' ? 'bg-emerald-100 text-emerald-800' :
+                                          order.status === 'returned' ? 'bg-red-100 text-red-800' :
+                                            order.status === 'expected_return' ? 'bg-purple-100 text-purple-800' :
+                                              order.status === 'dispatched' || order.status === 'dispatch' ? 'bg-blue-100 text-blue-800' :
+                                                'bg-yellow-100 text-yellow-800'
+                                      }`}>
                                       {order.status}
                                     </span>
                                   </td>
