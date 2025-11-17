@@ -93,10 +93,10 @@ const PostExOrderPage = () => {
 
         console.log("Submitting to PostEx API:", payload);
 
-        // Add token to headers for this request
+        // Add token as a custom header (not Bearer token)
         const config = {
           headers: {
-            Authorization: `Bearer ${this.token}`,
+            token: this.token, // Direct token header as required by PostEx API
             "Content-Type": "application/json",
           },
         };
@@ -135,12 +135,14 @@ const PostExOrderPage = () => {
         // Handle different types of errors
         if (error.response) {
           // Server responded with error status
+          const errorMessage =
+            error.response.data?.statusMessage ||
+            error.response.data?.message ||
+            error.response.data?.error ||
+            `Server error: ${error.response.status}`;
           return {
             success: false,
-            error:
-              error.response.data?.statusMessage ||
-              error.response.data?.message ||
-              `Server error: ${error.response.status}`,
+            error: errorMessage,
           };
         } else if (error.request) {
           // Request was made but no response received
@@ -180,7 +182,7 @@ const PostExOrderPage = () => {
           setLoading(true);
           console.log("Fetching sale data for ID:", saleId);
 
-          const response = await api.get(`/sales-orders/${saleId}`);
+          const response = await api.get(`/sales/${saleId}`);
           const sale = response.data;
 
           console.log("Fetched sale data:", sale);
@@ -371,7 +373,7 @@ const PostExOrderPage = () => {
           </div>
         )}
 
-        {/* Form */}
+        {/* Form - REST OF THE FORM CODE REMAINS EXACTLY THE SAME AS BEFORE */}
         <motion.form
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
