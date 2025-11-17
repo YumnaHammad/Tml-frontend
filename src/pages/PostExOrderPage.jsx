@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save, Truck, Package, MapPin, User, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 
 const PostExOrderPage = () => {
   const navigate = useNavigate();
@@ -68,10 +69,18 @@ const PostExOrderPage = () => {
 
   const handlePostExSubmit = async (e) => {
     e.preventDefault();
-    // Here you would integrate with PostEx API
-    // For now, just show a success message
-    toast.success('Order submitted to PostEx successfully!');
-    navigate('/approved-sales');
+    try {
+      const response = await api.post('/postex', postExFormData);
+      if (response.data.success) {
+        toast.success('PostEx order created successfully!');
+        navigate('/postex-orders');
+      } else {
+        toast.error(response.data.error || 'Failed to create PostEx order');
+      }
+    } catch (error) {
+      console.error('Error creating PostEx order:', error);
+      toast.error(error.response?.data?.error || 'Failed to create PostEx order');
+    }
   };
 
   return (

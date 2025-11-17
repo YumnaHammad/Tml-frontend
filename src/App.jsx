@@ -12,6 +12,7 @@ import Warehouses from './pages/Warehouses';
 import Sales from './pages/Sales';
 import ApprovedSales from './pages/ApprovedSales';
 import PostExOrderPage from './pages/PostExOrderPage';
+import PostExOrders from './pages/PostExOrders';
 import Purchases from './pages/Purchases';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
@@ -184,6 +185,14 @@ function AppRoutes() {
           element={
             <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
               <PostExOrderPage />
+            </RoleBasedRoute>
+          } 
+        />
+        <Route 
+          path="postex-orders" 
+          element={
+            <RoleBasedRoute allowedRoles={['admin', 'manager', 'agent']}>
+              <PostExOrders />
             </RoleBasedRoute>
           } 
         />
