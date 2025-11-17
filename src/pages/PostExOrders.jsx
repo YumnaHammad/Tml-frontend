@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Truck, Plus, RefreshCw, Eye, Trash2, Search, Filter, Calendar, X } from 'lucide-react';
 import CenteredLoader from '../components/CenteredLoader';
@@ -21,43 +21,168 @@ const PostExOrders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Fetch PostEx orders
-  const fetchPostExOrders = async () => {
+  // Note: PostEx API is now called through our backend for security
+
+  // Map PostEx API response to our format
+  const mapPostExOrderToLocalFormat = (apiOrder) => {
+    return {
+      _id: apiOrder.orderId || apiOrder.id || Math.random().toString(36).substr(2, 9),
+      orderReferenceNumber: apiOrder.orderRefNumber || apiOrder.orderReferenceNumber || apiOrder.orderNumber || 'N/A',
+      customerName: apiOrder.customerName || 'N/A',
+      customerContact: apiOrder.customerPhone || apiOrder.customerContact || 'N/A',
+      orderDate: apiOrder.orderDate || apiOrder.createdDate || new Date().toISOString(),
+      orderAmount: parseFloat(apiOrder.invoicePayment || apiOrder.orderAmount || apiOrder.amount || 0),
+      orderType: apiOrder.orderType || 'Normal',
+      status: mapPostExStatusToLocal(apiOrder.status || apiOrder.orderStatus),
+      deliveryCity: apiOrder.cityName || apiOrder.deliveryCity || 'N/A',
+      deliveryAddress: apiOrder.deliveryAddress || 'N/A',
+      items: apiOrder.items || 1,
+      airwayBillCopies: apiOrder.invoiceDivision || apiOrder.airwayBillCopies || 1,
+      trackingNumber: apiOrder.trackingNumber || apiOrder.trackingId || null,
+      orderDetail: apiOrder.orderDetail || '',
+      notes: apiOrder.transactionNotes || apiOrder.notes || '',
+      bookingWeight: apiOrder.bookingWeight || apiOrder.weight || null,
+      pickupCity: apiOrder.pickupCity || 'Rawalpindi',
+      pickupAddress: apiOrder.pickupAddress || apiOrder.pickupAddressCode || '',
+      returnCity: apiOrder.returnCity || apiOrder.returnCityName || '',
+      returnAddress: apiOrder.returnAddress || apiOrder.returnAddressCode || '',
+      createdAt: apiOrder.createdDate || apiOrder.createdAt || new Date().toISOString(),
+      createdBy: {
+        firstName: 'PostEx',
+        email: 'postex@api.pk'
+      }
+    };
+  };
+
+  // Map PostEx status to local status format
+  const mapPostExStatusToLocal = (postExStatus) => {
+    if (!postExStatus) return 'pending';
+    
+    const statusLower = postExStatus.toLowerCase();
+    if (statusLower.includes('pending') || statusLower.includes('pending')) return 'pending';
+    if (statusLower.includes('submitted') || statusLower.includes('confirmed')) return 'submitted';
+    if (statusLower.includes('transit') || statusLower.includes('shipped')) return 'in_transit';
+    if (statusLower.includes('delivered') || statusLower.includes('completed')) return 'delivered';
+    if (statusLower.includes('cancelled') || statusLower.includes('canceled')) return 'cancelled';
+    return 'pending';
+  };
+
+  // Fetch PostEx orders from our backend API (which calls PostEx API)
+  const fetchPostExOrders = useCallback(async () => {
     try {
       setRefreshing(true);
+      
+      console.log('Fetching orders from PostEx API via backend...');
+      
+      // Calculate date range - default to last 30 days
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30); // Last 30 days
+      
+      // Format dates as YYYY-MM-DD for API
+      const formatDateForAPI = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      
+      const startDateStr = formatDateForAPI(startDate);
+      const endDateStr = formatDateForAPI(endDate);
+      
+      console.log('Date range:', { startDate: startDateStr, endDate: endDateStr });
+      
+      // Call our backend API which will call PostEx API
       const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: itemsPerPage.toString()
+        startDate: startDateStr,
+        endDate: endDateStr
       });
+      
+      const response = await api.get(`/postex/api/fetch?${params.toString()}`);
+      
+      console.log('Backend API Response:', response.data);
 
+      // Handle response from our backend
+      let ordersData = [];
+      if (response.data?.success && response.data?.orders) {
+        ordersData = Array.isArray(response.data.orders) ? response.data.orders : [];
+      } else if (response.data && Array.isArray(response.data)) {
+        ordersData = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        ordersData = response.data.data;
+      }
+
+      // Map API orders to local format
+      const mappedOrders = ordersData.map(mapPostExOrderToLocalFormat);
+
+      // Apply client-side filtering
+      let filteredOrders = mappedOrders;
+      
       if (searchQuery) {
-        params.append('search', searchQuery);
+        const query = searchQuery.toLowerCase();
+        filteredOrders = filteredOrders.filter(order => 
+          order.orderReferenceNumber?.toLowerCase().includes(query) ||
+          order.customerName?.toLowerCase().includes(query) ||
+          order.customerContact?.toLowerCase().includes(query)
+        );
       }
 
       if (statusFilter) {
-        params.append('status', statusFilter);
+        filteredOrders = filteredOrders.filter(order => order.status === statusFilter);
       }
 
-      const response = await api.get(`/postex?${params.toString()}`);
-      const ordersData = response.data?.orders || [];
-      const totalFromServer = response.data?.total || 0;
+      // Apply client-side pagination
+      const totalFiltered = filteredOrders.length;
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
-      setOrders(ordersData);
-      setTotalOrdersCount(totalFromServer);
+      setOrders(paginatedOrders);
+      setTotalOrdersCount(totalFiltered);
     } catch (error) {
       console.error('Error fetching PostEx orders:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        config: {
+          method: error.config?.method,
+          url: error.config?.url,
+          headers: error.config?.headers
+        }
+      });
+      
       setOrders([]);
       setTotalOrdersCount(0);
-      toast.error('Failed to load PostEx orders.');
+      
+      if (error.response) {
+        const errorData = error.response.data;
+        const errorMessage = errorData?.error || 
+                           errorData?.message || 
+                           errorData?.statusMessage ||
+                           errorData?.detail ||
+                           (typeof errorData === 'string' ? errorData : `Server error: ${error.response.status}`);
+        
+        console.error('Full error response:', JSON.stringify(errorData, null, 2));
+        toast.error(`Failed to load PostEx orders: ${errorMessage}`);
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+        toast.error('No response from server. Please check your connection.');
+      } else {
+        console.error('Request setup error:', error.message);
+        toast.error(`Failed to load PostEx orders: ${error.message}`);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [currentPage, itemsPerPage, searchQuery, statusFilter]);
 
   useEffect(() => {
     fetchPostExOrders();
-  }, [currentPage, searchQuery, statusFilter]);
+  }, [fetchPostExOrders]);
 
   const handleRefresh = () => {
     fetchPostExOrders();
@@ -69,11 +194,12 @@ const PostExOrders = () => {
   };
 
   const handleDelete = async (orderId) => {
-    if (window.confirm('Are you sure you want to delete this PostEx order?')) {
+    if (window.confirm('Are you sure you want to delete this PostEx order? Note: This will only remove it from the local view. The order will still exist in PostEx system.')) {
       try {
-        await api.delete(`/postex/${orderId}`);
-        toast.success('PostEx order deleted successfully');
-        fetchPostExOrders();
+        // Since we're fetching from PostEx API, we can't delete from there
+        // We can only remove from local state if we had local storage
+        // For now, just show a message
+        toast.error('Cannot delete orders from PostEx API. Orders are managed by PostEx system.');
       } catch (error) {
         console.error('Error deleting PostEx order:', error);
         toast.error('Failed to delete PostEx order');
@@ -120,7 +246,9 @@ const PostExOrders = () => {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 mb-6">
         <div className="w-full sm:w-auto">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">PostEx Orders</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">View all PostEx shipping orders</p>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
+            View all PostEx shipping orders (fetched from PostEx API)
+          </p>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap w-full sm:w-auto">
@@ -185,73 +313,141 @@ const PostExOrders = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Reference #
+                  ORDER REF
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
+                  TRACKING #
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Order Date
+                  CUSTOMER
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
+                  WEIGHT
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
+                  DELIVERY ADDRESS
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  RETURN ADDRESS
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created By
+                  ITEMS
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  DETAILS
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  AMOUNT
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  JOURNEY
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  STATUS
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ACTIONS
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
                     No PostEx orders found.
                   </td>
                 </tr>
               ) : (
                 orders.map((order) => (
                   <tr key={order._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    {/* ORDER REF */}
+                    <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">
                         {order.orderReferenceNumber}
                       </div>
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 mt-1 inline-block">
+                        {order.orderType || 'Normal'}
+                      </span>
                     </td>
+                    {/* TRACKING # */}
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{order.customerName}</div>
+                      {order.trackingNumber ? (
+                        <>
+                          <div className="text-sm font-medium text-gray-900">
+                            {order.trackingNumber}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {formatDate(order.orderDate)}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-sm text-gray-400">-</div>
+                      )}
+                    </td>
+                    {/* CUSTOMER */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{order.customerName}</div>
                       <div className="text-sm text-gray-500">{order.customerContact}</div>
                     </td>
+                    {/* WEIGHT */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(order.orderDate)}</div>
+                      <div className="text-sm text-gray-900">
+                        {order.bookingWeight ? `${order.bookingWeight} kg` : '-'}
+                      </div>
                     </td>
+                    {/* DELIVERY ADDRESS */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">
+                        {order.deliveryAddress || order.deliveryCity || '-'}
+                      </div>
+                      {order.deliveryCity && order.deliveryAddress && (
+                        <div className="text-xs text-gray-500 mt-1">{order.deliveryCity}</div>
+                      )}
+                    </td>
+                    {/* RETURN ADDRESS */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">
+                        {order.returnAddress || order.pickupAddress || '-'}
+                      </div>
+                      {order.returnCity && (
+                        <div className="text-xs text-gray-500 mt-1">{order.returnCity}</div>
+                      )}
+                    </td>
+                    {/* ITEMS */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{order.items || 1}</div>
+                    </td>
+                    {/* DETAILS */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">
+                        {order.orderDetail ? (
+                          <span className="truncate max-w-[150px] block" title={order.orderDetail}>
+                            {order.orderDetail}
+                          </span>
+                        ) : (
+                          'NA'
+                        )}
+                      </div>
+                    </td>
+                    {/* AMOUNT */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         Rs {order.orderAmount?.toLocaleString() || '0'}
                       </div>
                     </td>
+                    {/* JOURNEY */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                        {order.orderType}
-                      </span>
+                      <button className="px-3 py-1 text-xs font-medium rounded-md bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
+                        Forward
+                      </button>
                     </td>
+                    {/* STATUS */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
                         {order.status?.replace('_', ' ').toUpperCase() || 'PENDING'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {order.createdBy?.firstName || order.createdBy?.email || 'N/A'}
-                      </div>
-                    </td>
+                    {/* ACTIONS */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
                         <button
@@ -260,13 +456,6 @@ const PostExOrders = () => {
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(order._id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -403,6 +592,14 @@ const PostExOrders = () => {
                         </span>
                       </p>
                     </div>
+                    {selectedOrder.trackingNumber && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Tracking Number:</span>
+                        <p className="text-sm text-blue-600 font-semibold">
+                          {selectedOrder.trackingNumber}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

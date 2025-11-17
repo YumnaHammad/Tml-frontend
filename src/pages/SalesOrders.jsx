@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import Layout from '../components/Layout';
-import ProtectedRoute from '../components/ProtectedRoute';
-import ModuleDashboard from '../components/ModuleDashboard';
-import { useAuth } from '../contexts/AuthContext';
-import toast from 'react-hot-toast';
-import { useAlert } from '../hooks/useAlert';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Package, 
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import Layout from "../components/Layout";
+import ProtectedRoute from "../components/ProtectedRoute";
+import ModuleDashboard from "../components/ModuleDashboard";
+import { useAuth } from "../contexts/AuthContext";
+import toast from "react-hot-toast";
+import { useAlert } from "../hooks/useAlert";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Package,
   X,
   Save,
   Send,
@@ -20,16 +20,17 @@ import {
   Clock,
   Loader2,
   Eye,
-  BarChart3
-} from 'lucide-react';
+  BarChart3,
+} from "lucide-react";
 
 const SalesOrders = () => {
   const { user } = useAuth();
-  const { showConfirm, showSuccess, showError, showInfo, AlertComponent } = useAlert();
+  const { showConfirm, showSuccess, showError, showInfo, AlertComponent } =
+    useAlert();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [submitting, setSubmitting] = useState(false);
@@ -41,53 +42,57 @@ const SalesOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get('/api/sales-orders');
+      const response = await axios.get("/api/sales-orders");
       // Sort by creation date - newest first
       const sortedOrders = (response.data || []).sort((a, b) => {
         return new Date(b.createdAt || b._id) - new Date(a.createdAt || a._id);
       });
       setOrders(sortedOrders);
     } catch (error) {
-      console.error('Error fetching sales orders:', error);
-      toast.error('Failed to fetch sales orders');
+      console.error("Error fetching sales orders:", error);
+      toast.error("Failed to fetch sales orders");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSubmitOrder = async (orderId) => {
-    const order = orders.find(o => o.id === orderId);
+    const order = orders.find((o) => o.id === orderId);
     showConfirm({
-      title: 'Submit Sales Order',
+      title: "Submit Sales Order",
       message: `Are you sure you want to submit this sales order for "${order?.customerName}"? This will check stock availability and create a dispatch record.`,
-      confirmText: 'Submit',
-      cancelText: 'Cancel',
+      confirmText: "Submit",
+      cancelText: "Cancel",
       onConfirm: async () => {
         setSubmitting(true);
         try {
           await axios.post(`/api/sales-orders/${orderId}/submit`);
           showSuccess({
-            title: 'Order Submitted',
-            message: 'Sales order has been successfully submitted and dispatch record created.'
+            title: "Order Submitted",
+            message:
+              "Sales order has been successfully submitted and dispatch record created.",
           });
           fetchOrders();
         } catch (error) {
-          console.error('Error submitting sales order:', error);
+          console.error("Error submitting sales order:", error);
           showError({
-            title: 'Submit Failed',
-            message: error.response?.data?.error || 'Failed to submit sales order. Please try again.'
+            title: "Submit Failed",
+            message:
+              error.response?.data?.error ||
+              "Failed to submit sales order. Please try again.",
           });
         } finally {
           setSubmitting(false);
         }
-      }
+      },
     });
   };
 
   // Filter orders
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.id.toString().includes(searchQuery);
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
+      order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.id.toString().includes(searchQuery);
     const matchesStatus = !statusFilter || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -95,13 +100,16 @@ const SalesOrders = () => {
   // Pagination
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedOrders = filteredOrders.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'draft':
+      case "draft":
         return <Clock className="h-4 w-4 text-gray-500" />;
-      case 'submitted':
+      case "submitted":
         return <CheckCircle className="h-4 w-4 text-success-600" />;
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
@@ -110,12 +118,12 @@ const SalesOrders = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'draft':
-        return 'bg-gray-100 text-gray-800';
-      case 'submitted':
-        return 'bg-success-100 text-success-800';
+      case "draft":
+        return "bg-gray-100 text-gray-800";
+      case "submitted":
+        return "bg-success-100 text-success-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -147,10 +155,12 @@ const SalesOrders = () => {
                 className="btn-secondary"
               >
                 <BarChart3 className="h-4 w-4 mr-2" />
-                {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
+                {showAnalytics ? "Hide Analytics" : "Show Analytics"}
               </button>
               <button
-                onClick={() => toast.info('Sales order creation feature coming soon!')}
+                onClick={() =>
+                  toast.info("Sales order creation feature coming soon!")
+                }
                 className="btn-primary"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -184,8 +194,8 @@ const SalesOrders = () => {
               <div className="flex space-x-2">
                 <button
                   onClick={() => {
-                    setSearchQuery('');
-                    setStatusFilter('');
+                    setSearchQuery("");
+                    setStatusFilter("");
                   }}
                   className="btn-secondary"
                 >
@@ -229,17 +239,21 @@ const SalesOrders = () => {
                         </span>
                       </td>
                       <td className="table-cell">
-                        <div className="text-sm font-medium text-gray-900">{order.customerName}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {order.customerName}
+                        </div>
                       </td>
                       <td className="table-cell">
-                        <div className="text-sm text-gray-900">{order.items?.length || 0} items</div>
+                        <div className="text-sm text-gray-900">
+                          {order.items?.length || 0} items
+                        </div>
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center">
                           <span className="font-semibold text-green-600">
-                            {new Intl.NumberFormat('en-PK', {
-                              style: 'currency',
-                              currency: 'PKR',
+                            {new Intl.NumberFormat("en-PK", {
+                              style: "currency",
+                              currency: "PKR",
                               minimumFractionDigits: 0,
                               maximumFractionDigits: 0,
                             }).format(parseFloat(order.totalAmount))}
@@ -247,19 +261,30 @@ const SalesOrders = () => {
                         </div>
                       </td>
                       <td className="table-cell">
-                        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                            order.status
+                          )}`}
+                        >
                           {getStatusIcon(order.status)}
-                          <span className="ml-1 capitalize">{order.status}</span>
+                          <span className="ml-1 capitalize">
+                            {order.status}
+                          </span>
                         </span>
                       </td>
                       <td className="table-cell">
                         {order.dispatch ? (
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            order.dispatch.status === 'delivered' ? 'bg-success-100 text-success-800' :
-                            order.dispatch.status === 'dispatched' ? 'bg-blue-100 text-blue-800' :
-                            order.dispatch.status === 'returned' ? 'bg-danger-100 text-danger-800' :
-                            'bg-warning-100 text-warning-800'
-                          }`}>
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              order.dispatch.status === "delivered"
+                                ? "bg-success-100 text-success-800"
+                                : order.dispatch.status === "dispatched"
+                                ? "bg-blue-100 text-blue-800"
+                                : order.dispatch.status === "returned"
+                                ? "bg-danger-100 text-danger-800"
+                                : "bg-warning-100 text-warning-800"
+                            }`}
+                          >
                             {order.dispatch.status}
                           </span>
                         ) : (
@@ -267,7 +292,9 @@ const SalesOrders = () => {
                         )}
                       </td>
                       <td className="table-cell">
-                        <div className="text-sm text-gray-900">{order.creator?.name}</div>
+                        <div className="text-sm text-gray-900">
+                          {order.creator?.name}
+                        </div>
                       </td>
                       <td className="table-cell">
                         <div className="text-sm text-gray-500">
@@ -277,13 +304,15 @@ const SalesOrders = () => {
                       <td className="table-cell">
                         <div className="flex items-center space-x-2">
                           <button
-                            onClick={() => toast.info('View feature coming soon!')}
+                            onClick={() =>
+                              toast.info("View feature coming soon!")
+                            }
                             className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors duration-200"
                             title="View order"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-                          {order.status === 'draft' && (
+                          {order.status === "draft" && (
                             <button
                               onClick={() => handleSubmitOrder(order.id)}
                               disabled={submitting}
@@ -297,7 +326,7 @@ const SalesOrders = () => {
                               )}
                             </button>
                           )}
-                          {order.status === 'submitted' && (
+                          {order.status === "submitted" && (
                             <button
                               className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                               title="View receipt"
@@ -325,31 +354,39 @@ const SalesOrders = () => {
               <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700">
-                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredOrders.length)} of {filteredOrders.length} results
+                    Showing {startIndex + 1} to{" "}
+                    {Math.min(startIndex + itemsPerPage, filteredOrders.length)}{" "}
+                    of {filteredOrders.length} results
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      onClick={() =>
+                        setCurrentPage(Math.max(1, currentPage - 1))
+                      }
                       disabled={currentPage === 1}
                       className="btn-ghost disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                          page === currentPage
-                            ? 'bg-primary-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                            page === currentPage
+                              ? "bg-primary-600 text-white"
+                              : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    )}
                     <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      onClick={() =>
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                      }
                       disabled={currentPage === totalPages}
                       className="btn-ghost disabled:opacity-50 disabled:cursor-not-allowed"
                     >
