@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
+import axios from "axios";
 
 const PostExOrderPage = () => {
   const navigate = useNavigate();
@@ -58,11 +59,19 @@ const PostExOrderPage = () => {
     },
   ];
 
-  // PostEx API Service
+  // Create Axios instance for PostEx API
+  const postExApi = axios.create({
+    baseURL: "https://api.postex.pk/services/integration/api/order",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+  });
+
+  // PostEx API Service with Axios
   const postExApiService = {
     token:
       "ZThkODBkYzg4NjBkNDE0YzgxOWUxZGZkM2U0YjNjYjc6ZDk2ZjE5NjBjNzU2NDk3MThmZDc2MmExYTgyYWY5MmY=",
-    baseURL: "https://api.postex.pk/services/integration/api/order",
 
     async createOrder(orderData) {
       try {
@@ -84,69 +93,69 @@ const PostExOrderPage = () => {
 
         console.log("Submitting to PostEx API:", payload);
 
-        // Try different approaches to handle CORS
-        let response;
-        try {
-          // Approach 1: Direct fetch with mode 'cors'
-          response = await fetch(`${this.baseURL}/v3/create-order`, {
-            method: "POST",
-            mode: "cors",
-            headers: {
-              Authorization: `Bearer ${this.token}`,
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify(payload),
-          });
-        } catch (fetchError) {
-          console.error("Fetch error:", fetchError);
-          // Approach 2: Try without Authorization header in body
-          const payloadWithToken = {
-            ...payload,
-            // Token is already in the payload as per PostEx requirements
-          };
+        // Add token to headers for this request
+        const config = {
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            "Content-Type": "application/json",
+          },
+        };
 
-          response = await fetch(`${this.baseURL}/v3/create-order`, {
-            method: "POST",
-            mode: "cors",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify(payloadWithToken),
-          });
-        }
+        const response = await postExApi.post(
+          "/v3/create-order",
+          payload,
+          config
+        );
 
-        // Check if response is ok
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        console.log("PostEx API Response:", response.data);
 
-        const data = await response.json();
-        console.log("PostEx API Response:", data);
-
-        if (data.statusCode === "200" || data.status === "200") {
+        if (
+          response.data.statusCode === "200" ||
+          response.data.status === "200"
+        ) {
           return {
             success: true,
-            data: data,
-            trackingNumber: data.trackingNumber || data.orderId,
-            orderId: data.orderId,
+            data: response.data,
+            trackingNumber:
+              response.data.trackingNumber || response.data.orderId,
+            orderId: response.data.orderId,
           };
         } else {
           return {
             success: false,
             error:
-              data.statusMessage || data.message || "Order creation failed",
+              response.data.statusMessage ||
+              response.data.message ||
+              "Order creation failed",
           };
         }
       } catch (error) {
         console.error("Error creating PostEx order:", error);
-        return {
-          success: false,
-          error:
-            error.message ||
-            "Network error occurred. Please check your connection and try again.",
-        };
+
+        // Handle different types of errors
+        if (error.response) {
+          // Server responded with error status
+          return {
+            success: false,
+            error:
+              error.response.data?.statusMessage ||
+              error.response.data?.message ||
+              `Server error: ${error.response.status}`,
+          };
+        } else if (error.request) {
+          // Request was made but no response received
+          return {
+            success: false,
+            error:
+              "No response received from server. Please check your connection.",
+          };
+        } else {
+          // Other errors
+          return {
+            success: false,
+            error: error.message || "An unexpected error occurred",
+          };
+        }
       }
     },
   };
@@ -159,7 +168,6 @@ const PostExOrderPage = () => {
       setPostExFormData((prev) => ({
         ...prev,
         pickupAddressCode: hardcodedMerchantAddresses[0].addressCode,
-        storeAddressCode: hardcodedMerchantAddresses[0].addressCode,
       }));
     }
   }, []);
@@ -172,7 +180,7 @@ const PostExOrderPage = () => {
           setLoading(true);
           console.log("Fetching sale data for ID:", saleId);
 
-          const response = await api.get(`/sales/${saleId}`);
+          const response = await api.get(`/sales-orders/${saleId}`);
           const sale = response.data;
 
           console.log("Fetched sale data:", sale);
@@ -265,7 +273,7 @@ const PostExOrderPage = () => {
     // Submit to PostEx API
     console.log("Submitting order to PostEx...");
     const result = await postExApiService.createOrder(postExFormData);
-    console.log("result is ", result);
+    console.log("API Result:", result);
 
     if (result.success) {
       toast.success("Order successfully created with PostEx!");
@@ -363,7 +371,7 @@ const PostExOrderPage = () => {
           </div>
         )}
 
-        {/* Form - REST OF THE FORM CODE REMAINS EXACTLY THE SAME AS BEFORE */}
+        {/* Form */}
         <motion.form
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
