@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Truck, Plus, RefreshCw, Eye, Trash2, Search, Filter, Calendar, X, Package, DollarSign, Clock, CheckCircle, TrendingUp, MapPin, SlidersHorizontal } from 'lucide-react';
+import { Truck, Plus, RefreshCw, Eye, Trash2, Search, Filter, Calendar, X, Package, DollarSign, Clock, CheckCircle, TrendingUp, MapPin, SlidersHorizontal, Download } from 'lucide-react';
 import CenteredLoader from '../components/CenteredLoader';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -160,7 +160,7 @@ const PostExOrders = () => {
   }, [searchQuery, statusFilter, cityFilter, orderTypeFilter, dateRangeFilter, amountRangeFilter, currentPage, itemsPerPage]);
 
   // Fetch PostEx orders from our backend API (which calls PostEx API)
-  const fetchPostExOrders = useCallback(async () => {
+  const fetchPostExOrders = useCallback(async (shouldExport = false) => {
     try {
       setLoading(true);
       setRefreshing(true);
@@ -235,6 +235,13 @@ const PostExOrders = () => {
       // Apply filters
       if (mappedOrders.length > 0) {
         applyFilters(mappedOrders);
+        
+        // Export if requested
+        if (shouldExport && mappedOrders.length > 0) {
+          setTimeout(() => {
+            handleExportOrders('excel', mappedOrders);
+          }, 500); // Small delay to ensure state is updated
+        }
       } else {
         // If no orders, clear the filtered results
         setOrders([]);
@@ -293,8 +300,52 @@ const PostExOrders = () => {
     fetchPostExOrders();
   }, [fetchPostExOrders]);
 
-  const handleRefresh = () => {
-    fetchPostExOrders();
+  const handleRefresh = async () => {
+    await fetchPostExOrders(true); // Pass true to trigger export after fetch
+  };
+
+  const handleExportOrders = async (format = 'excel', ordersToExport = null) => {
+    try {
+      const orders = ordersToExport || allOrders;
+      
+      if (!orders || orders.length === 0) {
+        toast.error('No orders to export');
+        return;
+      }
+
+      // Prepare data for export
+      const exportData = orders.map((order, index) => ({
+        'S.NO': index + 1,
+        'Order Reference': order.orderReferenceNumber || 'N/A',
+        'Tracking Number': order.trackingNumber || 'N/A',
+        'Customer Name': order.customerName || 'N/A',
+        'Customer Contact': order.customerContact || 'N/A',
+        'Order Date': formatDate(order.orderDate),
+        'Order Amount': order.orderAmount || 0,
+        'Weight': order.bookingWeight ? `${order.bookingWeight} kg` : 'N/A',
+        'Delivery Address': order.deliveryAddress || order.deliveryCity || 'N/A',
+        'Return Address': order.returnAddress || order.pickupAddress || 'N/A',
+        'City': order.deliveryCity || 'N/A',
+        'Order Type': order.orderType || 'Normal',
+        'Status': order.status || 'N/A',
+        'Journey': order.journey || 'N/A'
+      }));
+
+      const { exportToExcel } = await import('../utils/exportUtils');
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `PostEx_Orders_${timestamp}`;
+      
+      const result = exportToExcel(exportData, filename, 'PostEx Orders');
+      
+      if (result.success) {
+        toast.success(`Orders exported successfully! (${orders.length} orders)`);
+      } else {
+        toast.error(`Export failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export orders. Please try again.');
+    }
   };
 
   const handleView = (order) => {
