@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Truck, Plus, RefreshCw, Eye, Trash2, Search, Filter, Calendar, X } from 'lucide-react';
+import { Truck, Plus, RefreshCw, Eye, Trash2, Search, Filter, Calendar, X, Package, DollarSign, Clock, CheckCircle, TrendingUp, MapPin, SlidersHorizontal } from 'lucide-react';
 import CenteredLoader from '../components/CenteredLoader';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -9,7 +9,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const PostExOrders = () => {
   const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]); // Store all fetched orders
+  const [orders, setOrders] = useState([]); // Filtered and paginated orders
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [totalOrdersCount, setTotalOrdersCount] = useState(0);
@@ -18,6 +19,23 @@ const PostExOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [orderTypeFilter, setOrderTypeFilter] = useState('');
+  const [dateRangeFilter, setDateRangeFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
+  const [amountRangeFilter, setAmountRangeFilter] = useState({
+    min: '',
+    max: ''
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [summaryStats, setSummaryStats] = useState({
+    totalOrders: 0,
+    totalRevenue: 0,
+    pendingOrders: 0,
+    deliveredOrders: 0
+  });
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -67,9 +85,86 @@ const PostExOrders = () => {
     return 'pending';
   };
 
+  // Apply filters function
+  const applyFilters = useCallback((ordersToFilter) => {
+    if (!ordersToFilter || ordersToFilter.length === 0) {
+      setOrders([]);
+      setTotalOrdersCount(0);
+      return;
+    }
+
+    let filteredOrders = [...ordersToFilter];
+    
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filteredOrders = filteredOrders.filter(order => 
+        order.orderReferenceNumber?.toLowerCase().includes(query) ||
+        order.customerName?.toLowerCase().includes(query) ||
+        order.customerContact?.toLowerCase().includes(query) ||
+        order.trackingNumber?.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (statusFilter) {
+      filteredOrders = filteredOrders.filter(order => order.status === statusFilter);
+    }
+
+    // City filter
+    if (cityFilter) {
+      filteredOrders = filteredOrders.filter(order => 
+        order.deliveryCity?.toLowerCase().includes(cityFilter.toLowerCase())
+      );
+    }
+
+    // Order type filter
+    if (orderTypeFilter) {
+      filteredOrders = filteredOrders.filter(order => order.orderType === orderTypeFilter);
+    }
+
+    // Date range filter
+    if (dateRangeFilter.startDate) {
+      const startDate = new Date(dateRangeFilter.startDate);
+      filteredOrders = filteredOrders.filter(order => {
+        const orderDate = new Date(order.orderDate || order.createdAt);
+        return orderDate >= startDate;
+      });
+    }
+    if (dateRangeFilter.endDate) {
+      const endDate = new Date(dateRangeFilter.endDate);
+      endDate.setHours(23, 59, 59, 999); // Include entire end date
+      filteredOrders = filteredOrders.filter(order => {
+        const orderDate = new Date(order.orderDate || order.createdAt);
+        return orderDate <= endDate;
+      });
+    }
+
+    // Amount range filter
+    if (amountRangeFilter.min) {
+      const minAmount = parseFloat(amountRangeFilter.min);
+      filteredOrders = filteredOrders.filter(order => (order.orderAmount || 0) >= minAmount);
+    }
+    if (amountRangeFilter.max) {
+      const maxAmount = parseFloat(amountRangeFilter.max);
+      filteredOrders = filteredOrders.filter(order => (order.orderAmount || 0) <= maxAmount);
+    }
+
+    // Update total count
+    setTotalOrdersCount(filteredOrders.length);
+
+    // Apply pagination
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+    setOrders(paginatedOrders);
+  }, [searchQuery, statusFilter, cityFilter, orderTypeFilter, dateRangeFilter, amountRangeFilter, currentPage, itemsPerPage]);
+
   // Fetch PostEx orders from our backend API (which calls PostEx API)
   const fetchPostExOrders = useCallback(async () => {
     try {
+      setLoading(true);
       setRefreshing(true);
       
       console.log('Fetching orders from PostEx API via backend...');
@@ -101,44 +196,53 @@ const PostExOrders = () => {
       const response = await api.get(`/postex/api/fetch?${params.toString()}`);
       
       console.log('Backend API Response:', response.data);
+      console.log('Response success:', response.data?.success);
+      console.log('Response orders:', response.data?.orders);
+      console.log('Orders count:', response.data?.orders?.length || 0);
 
       // Handle response from our backend
       let ordersData = [];
       if (response.data?.success && response.data?.orders) {
         ordersData = Array.isArray(response.data.orders) ? response.data.orders : [];
+        console.log('Using response.data.orders, count:', ordersData.length);
       } else if (response.data && Array.isArray(response.data)) {
         ordersData = response.data;
+        console.log('Using response.data as array, count:', ordersData.length);
       } else if (response.data?.data && Array.isArray(response.data.data)) {
         ordersData = response.data.data;
+        console.log('Using response.data.data, count:', ordersData.length);
+      } else {
+        console.warn('Unexpected response format:', response.data);
       }
+
+      console.log('Final ordersData before mapping:', ordersData.length);
 
       // Map API orders to local format
       const mappedOrders = ordersData.map(mapPostExOrderToLocalFormat);
+      console.log('Mapped orders count:', mappedOrders.length);
 
-      // Apply client-side filtering
-      let filteredOrders = mappedOrders;
+      // Store all orders
+      setAllOrders(mappedOrders);
       
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredOrders = filteredOrders.filter(order => 
-          order.orderReferenceNumber?.toLowerCase().includes(query) ||
-          order.customerName?.toLowerCase().includes(query) ||
-          order.customerContact?.toLowerCase().includes(query)
-        );
+      // Calculate summary statistics
+      const stats = {
+        totalOrders: mappedOrders.length,
+        totalRevenue: mappedOrders.reduce((sum, order) => sum + (order.orderAmount || 0), 0),
+        pendingOrders: mappedOrders.filter(order => order.status === 'pending').length,
+        deliveredOrders: mappedOrders.filter(order => order.status === 'delivered').length
+      };
+      setSummaryStats(stats);
+      console.log('Summary stats calculated:', stats);
+
+      // Apply filters
+      if (mappedOrders.length > 0) {
+        applyFilters(mappedOrders);
+      } else {
+        // If no orders, clear the filtered results
+        setOrders([]);
+        setTotalOrdersCount(0);
+        console.log('No orders found, clearing table');
       }
-
-      if (statusFilter) {
-        filteredOrders = filteredOrders.filter(order => order.status === statusFilter);
-      }
-
-      // Apply client-side pagination
-      const totalFiltered = filteredOrders.length;
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage;
-      const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
-
-      setOrders(paginatedOrders);
-      setTotalOrdersCount(totalFiltered);
     } catch (error) {
       console.error('Error fetching PostEx orders:', error);
       console.error('Error details:', {
@@ -178,7 +282,14 @@ const PostExOrders = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentPage, itemsPerPage, searchQuery, statusFilter]);
+  }, [applyFilters]);
+
+  // Reapply filters when filters change
+  useEffect(() => {
+    if (allOrders.length > 0) {
+      applyFilters(allOrders);
+    }
+  }, [searchQuery, statusFilter, cityFilter, orderTypeFilter, dateRangeFilter, amountRangeFilter, currentPage, itemsPerPage, applyFilters, allOrders]);
 
   useEffect(() => {
     fetchPostExOrders();
@@ -241,6 +352,20 @@ const PostExOrders = () => {
     return <CenteredLoader message="Loading PostEx orders..." size="large" />;
   }
 
+  // Get unique cities for filter
+  const uniqueCities = [...new Set(allOrders.map(order => order.deliveryCity).filter(Boolean))].sort();
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('');
+    setCityFilter('');
+    setOrderTypeFilter('');
+    setDateRangeFilter({ startDate: '', endDate: '' });
+    setAmountRangeFilter({ min: '', max: '' });
+    setCurrentPage(1);
+  };
+
   return (
     <div className="">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 mb-6">
@@ -270,14 +395,110 @@ const PostExOrders = () => {
         </div>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="card p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-100 text-sm font-medium mb-1">Total Orders</p>
+              <p className="text-3xl font-bold">{summaryStats.totalOrders}</p>
+            </div>
+            <div className="bg-blue-400 bg-opacity-30 rounded-lg p-3">
+              <Package className="w-8 h-8" />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="card p-6 bg-gradient-to-br from-green-500 to-green-600 text-white"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-green-100 text-sm font-medium mb-1">Total Revenue</p>
+              <p className="text-3xl font-bold">Rs {summaryStats.totalRevenue.toLocaleString()}</p>
+            </div>
+            <div className="bg-green-400 bg-opacity-30 rounded-lg p-3">
+              <DollarSign className="w-8 h-8" />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="card p-6 bg-gradient-to-br from-yellow-500 to-yellow-600 text-white"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-yellow-100 text-sm font-medium mb-1">Pending Orders</p>
+              <p className="text-3xl font-bold">{summaryStats.pendingOrders}</p>
+            </div>
+            <div className="bg-yellow-400 bg-opacity-30 rounded-lg p-3">
+              <Clock className="w-8 h-8" />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          className="card p-6 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-emerald-100 text-sm font-medium mb-1">Delivered Orders</p>
+              <p className="text-3xl font-bold">{summaryStats.deliveredOrders}</p>
+            </div>
+            <div className="bg-emerald-400 bg-opacity-30 rounded-lg p-3">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
       {/* Filters */}
       <div className="card p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Filter className="w-5 h-5 mr-2" />
+            Filters
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="flex items-center px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <SlidersHorizontal className="w-4 h-4 mr-2" />
+              {showAdvancedFilters ? 'Hide' : 'Show'} Advanced
+            </button>
+            {(searchQuery || statusFilter || cityFilter || orderTypeFilter || dateRangeFilter.startDate || dateRangeFilter.endDate || amountRangeFilter.min || amountRangeFilter.max) && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center px-3 py-2 text-sm text-red-600 hover:text-red-700 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by reference, customer name, or contact..."
+              placeholder="Search by reference, customer, contact, or tracking..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -303,7 +524,116 @@ const PostExOrders = () => {
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
+          <div>
+            <select
+              value={orderTypeFilter}
+              onChange={(e) => {
+                setOrderTypeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Order Types</option>
+              <option value="Normal">Normal</option>
+              <option value="Reverse">Reverse</option>
+              <option value="Replacement">Replacement</option>
+            </select>
+          </div>
         </div>
+
+        {/* Advanced Filters */}
+        {showAdvancedFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-4 pt-4 border-t border-gray-200"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <MapPin className="w-4 h-4 inline mr-1" />
+                  Delivery City
+                </label>
+                <select
+                  value={cityFilter}
+                  onChange={(e) => {
+                    setCityFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">All Cities</option>
+                  {uniqueCities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={dateRangeFilter.startDate}
+                  onChange={(e) => {
+                    setDateRangeFilter(prev => ({ ...prev, startDate: e.target.value }));
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={dateRangeFilter.endDate}
+                  onChange={(e) => {
+                    setDateRangeFilter(prev => ({ ...prev, endDate: e.target.value }));
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <DollarSign className="w-4 h-4 inline mr-1" />
+                  Min Amount
+                </label>
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={amountRangeFilter.min}
+                  onChange={(e) => {
+                    setAmountRangeFilter(prev => ({ ...prev, min: e.target.value }));
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <DollarSign className="w-4 h-4 inline mr-1" />
+                  Max Amount
+                </label>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={amountRangeFilter.max}
+                  onChange={(e) => {
+                    setAmountRangeFilter(prev => ({ ...prev, max: e.target.value }));
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Orders Table */}
@@ -312,6 +642,9 @@ const PostExOrders = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  S.NO
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   ORDER REF
                 </th>
@@ -353,13 +686,19 @@ const PostExOrders = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={13} className="px-6 py-8 text-center text-gray-500">
                     No PostEx orders found.
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
+                orders.map((order, index) => (
                   <tr key={order._id} className="hover:bg-gray-50">
+                    {/* SERIAL NUMBER */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {(currentPage - 1) * itemsPerPage + index + 1}
+                      </div>
+                    </td>
                     {/* ORDER REF */}
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">
