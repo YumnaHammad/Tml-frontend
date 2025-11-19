@@ -289,8 +289,8 @@ const PostExOrders = () => {
           },
           params: {
             orderStatusId: 0, // All orders by default
-            startDate: "2025-11-17",
-            endDate: "2025-11-17",
+            startDate: dateRangeFilter.startDate,
+            endDate: dateRangeFilter.endDate,
           },
         }
       );
