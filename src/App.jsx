@@ -19,6 +19,7 @@ import Sales from "./pages/Sales";
 import ApprovedSales from "./pages/ApprovedSales";
 import PostExOrderPage from "./pages/PostExOrderPage";
 import PostExOrders from "./pages/PostExOrders";
+import PostExOrderViewList from "./pages/PostExOrderViewList";
 import Purchases from "./pages/Purchases";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -214,6 +215,22 @@ function AppRoutes() {
           element={
             <RoleBasedRoute allowedRoles={["admin", "manager", "agent"]}>
               <PostExOrders />
+            </RoleBasedRoute>
+          }
+        />
+        <Route
+          path="viewlist"
+          element={
+            <RoleBasedRoute allowedRoles={["admin", "manager", "agent"]}>
+              <PostExOrderViewList />
+            </RoleBasedRoute>
+          }
+        />
+        <Route
+          path="viewlist/:id"
+          element={
+            <RoleBasedRoute allowedRoles={["admin", "manager", "agent"]}>
+              <PostExOrderViewList />
             </RoleBasedRoute>
           }
         />
