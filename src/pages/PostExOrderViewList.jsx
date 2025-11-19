@@ -1,26 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { 
-  ArrowLeft, 
-  FileText, 
-  Package, 
-  MapPin, 
-  Phone, 
-  Calendar, 
-  DollarSign, 
-  Truck,
-  CheckCircle,
-  Clock,
-  XCircle,
-  AlertCircle,
-  Download,
-  MessageSquare,
   X,
-  Search,
-  Bell,
-  User
+  Warehouse,
+  Truck,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  RotateCcw,
+  Package
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import CenteredLoader from '../components/CenteredLoader';
 import api from '../services/api';
@@ -30,90 +19,241 @@ import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 const PostExOrderViewList = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [showRemarks, setShowRemarks] = useState(false);
 
-  // Sample data structure - will be replaced when you fetch real data
-  const [order, setOrder] = useState({
-    // Basic Information
-    merchantName: 'Tml Mart',
-    trackingNumber: '25393050002913',
-    orderType: 'CASH ON DELIVERY',
-    invoiceAmount: 2800.00,
-    bookingWeight: 0.50,
-    orderDeliveryDate: 'Rawalpindi',
-    pickupCity: 'Rawalpindi',
-    returnCity: 'Rawalpindi',
-    orderReference: 'Alexa Check Bag Black',
-    orderDetails: 'N/A',
-    status: 'Returned',
-    invoiceAmountDate: 'Nov 8, 2025, 3:42:26 PM',
-    actualWeight: 0.90,
-    orderPickupDate: 'Nov 8, 2025, 6:22:18 PM',
-    pickupAddress: 'Younas Plaza satellite town F Block Leaders BPO New Katariyan Rawalpindi',
-    returnAddress: 'Younas Plaza satellite town F Block Leaders BPO New Katariyan Rawalpindi',
+  // Generate timeline from order data
+  const generateTimelineFromOrder = (orderData) => {
+    if (!orderData) return [];
     
-    // Customer Details
-    customerName: 'Shareef',
-    deliveryAddress: 'oposit Minnar e pakistan qasur pura kareem park, jamu wala khhu jahangir bakry',
-    customerPhone: '03014300944',
-    city: 'Lahore',
-    
-    // Payment Details
-    receivedAmount: 0.00,
-    upfrontPayment: 1960.00,
-    reservedPayment: 0.00,
-    codCharges: 209.00,
-    upfrontCharges: 0.00,
-    balanceAmount: 1960.00,
-    upfrontPaymentDate: '-',
-    reservedPaymentDate: '-',
-    codTax: 33.44,
-    upfrontTax: 0.00,
-    
-    // Timeline/Status History
-    timeline: [
-      { status: 'At Tml Mart Warehouse', date: 'Nov 8, 2025, 3:42:26 PM', completed: true },
-      { status: 'Departed to PostEx Warehouse', date: 'Nov 8, 2025, 6:22:18 PM', completed: true },
-      { status: 'Received at RWP Warehouse', date: 'Nov 8, 2025, 9:55:23 PM', completed: true },
-      { status: 'Departed to LAHORE', date: 'Nov 9, 2025, 12:33:25 AM', completed: true },
-      { status: 'Arrived at Transit Hub LHE', date: 'Nov 9, 2025, 7:19:27 AM', completed: true },
-      { status: 'Waiting for Delivery', date: 'Nov 9, 2025, 8:03:15 PM', completed: true },
-      { status: 'Departed to LAHORE', date: 'Nov 10, 2025, 12:14:21 PM', completed: true },
-      { status: 'Arrived at Transit Hub LHE', date: 'Nov 10, 2025, 12:45:18 PM', completed: true },
-      { status: 'Waiting for Delivery', date: 'Nov 10, 2025, 12:52:18 PM', completed: true },
-      { status: 'Enroute for Delivery', date: 'Nov 10, 2025, 1:54:17 PM', completed: true },
-      { status: 'Attempt Made: RFD(REFUSED TO RECEIVE)', date: 'Nov 10, 2025, 3:48:38 PM', completed: true },
-      { status: 'Deliver Under Review', date: 'Nov 10, 2025, 6:44:20 PM', completed: true },
-    ],
-    
-    // Remarks
-    remarks: []
-  });
+    const timeline = [];
+    const formatDateTime = (dateString) => {
+      if (!dateString) return null;
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        });
+      } catch {
+        return null;
+      }
+    };
+
+    const status = orderData.status?.toLowerCase() || '';
+    const createdAt = formatDateTime(orderData.createdAt || orderData.orderDate);
+    const orderDate = formatDateTime(orderData.orderDate);
+
+    // Always add initial status
+    if (createdAt) {
+      timeline.push({
+        status: 'At Tml Mart Warehouse',
+        date: createdAt,
+        completed: true,
+        icon: 'warehouse',
+        color: 'blue'
+      });
+    }
+
+    // Add statuses based on order status
+    if (status.includes('submitted') || status.includes('booked')) {
+      timeline.push({
+        status: 'Departed to PostEx Warehouse',
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'truck',
+        color: 'red'
+      });
+    }
+
+    if (status.includes('transit') || status.includes('warehouse')) {
+      timeline.push({
+        status: 'Received at RWP Warehouse',
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'warehouse',
+        color: 'red'
+      });
+      
+      if (orderData.deliveryCity) {
+        timeline.push({
+          status: `Departed to ${orderData.deliveryCity.toUpperCase()}`,
+          date: orderDate || createdAt,
+          completed: true,
+          icon: 'truck',
+          color: 'green'
+        });
+      }
+    }
+
+    if (status.includes('transit') || status.includes('en-route')) {
+      timeline.push({
+        status: `Arrived at Transit Hub ${orderData.deliveryCity?.substring(0, 3).toUpperCase() || 'LHE'}`,
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'warehouse',
+        color: 'red'
+      });
+    }
+
+    if (status.includes('pending') || status.includes('waiting')) {
+      timeline.push({
+        status: 'Waiting for Delivery',
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'warehouse',
+        color: 'red'
+      });
+    }
+
+    if (status.includes('transit') || status.includes('enroute')) {
+      timeline.push({
+        status: 'Enroute for Delivery',
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'truck',
+        color: 'green'
+      });
+    }
+
+    if (status.includes('attempted')) {
+      timeline.push({
+        status: 'Attempt Made: RFD(REFUSED TO RECEIVE)',
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'refresh',
+        color: 'blue'
+      });
+    }
+
+    if (status.includes('review') || status.includes('under review')) {
+      timeline.push({
+        status: 'Delivery Under Review',
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'package',
+        color: 'brown'
+      });
+    }
+
+    if (status.includes('delivered')) {
+      timeline.push({
+        status: 'Delivered',
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'check',
+        color: 'green'
+      });
+    }
+
+    if (status.includes('returned')) {
+      timeline.push({
+        status: 'Returned',
+        date: orderDate || createdAt,
+        completed: true,
+        icon: 'refresh',
+        color: 'red'
+      });
+    }
+
+    return timeline;
+  };
+
+  // Map order data from PostExOrders format to detail page format
+  const mapOrderToDetailFormat = (orderData) => {
+    if (!orderData) return null;
+
+    const formatDateTime = (dateString) => {
+      if (!dateString) return '-';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        });
+      } catch {
+        return dateString || '-';
+      }
+    };
+
+    return {
+      // Basic Information
+      merchantName: orderData.createdBy?.firstName || 'PostEx',
+      trackingNumber: orderData.trackingNumber || 'N/A',
+      orderType: orderData.orderType === 'Normal' ? 'CASH ON DELIVERY' : (orderData.orderType || 'NORMAL'),
+      invoiceAmount: orderData.orderAmount || 0,
+      bookingWeight: orderData.bookingWeight || 0,
+      orderDeliveryDate: orderData.orderDate ? formatDateTime(orderData.orderDate) : '-',
+      pickupCity: orderData.pickupCity || 'N/A',
+      returnCity: orderData.returnCity || orderData.pickupCity || 'N/A',
+      orderReference: orderData.orderReferenceNumber || 'N/A',
+      orderDetails: orderData.orderDetail || 'N/A',
+      status: orderData.status ? orderData.status.replace('_', ' ').toUpperCase() : 'UNBOOKED',
+      invoiceAmountDate: orderData.orderDate ? formatDateTime(orderData.orderDate) : '-',
+      actualWeight: orderData.bookingWeight || 0,
+      orderPickupDate: orderData.createdAt ? formatDateTime(orderData.createdAt) : '-',
+      pickupAddress: orderData.pickupAddress || 'N/A',
+      returnAddress: orderData.returnAddress || orderData.pickupAddress || 'N/A',
+      
+      // Customer Details
+      customerName: orderData.customerName || 'N/A',
+      deliveryAddress: orderData.deliveryAddress || 'N/A',
+      customerPhone: orderData.customerContact || 'N/A',
+      city: orderData.deliveryCity || 'N/A',
+      
+      // Payment Details (default values - will be updated when API provides these)
+      receivedAmount: 0.00,
+      upfrontPayment: 0.00,
+      reservedPayment: 0.00,
+      codCharges: 0.00,
+      upfrontCharges: 0.00,
+      balanceAmount: orderData.orderAmount || 0.00,
+      upfrontPaymentDate: '-',
+      reservedPaymentDate: '-',
+      codTax: 0.00,
+      upfrontTax: 0.00,
+      
+      // Timeline/Status History - Generate from order status and dates
+      timeline: generateTimelineFromOrder(orderData),
+      
+      // Remarks
+      remarks: orderData.notes ? [orderData.notes] : []
+    };
+  };
+
+  const [order, setOrder] = useState(null);
 
   useEffect(() => {
-    // TODO: Fetch order data when you implement the API
-    // Example:
-    // const fetchOrderData = async () => {
-    //   try {
-    //     setLoading(true);
-    //     const response = await api.get(`/postex/orders/${id}`);
-    //     setOrder(response.data);
-    //   } catch (error) {
-    //     console.error('Error fetching order:', error);
-    //     toast.error('Failed to load order details');
-    //   } finally {
-    //     setLoading(false);
-    //   }
-    // };
-    // if (id) {
-    //   fetchOrderData();
-    // } else {
-    //   setLoading(false);
-    // }
-    setLoading(false);
-  }, [id]);
+    // Get order from navigation state or use sample data
+    const orderFromState = location.state?.order;
+    
+    if (orderFromState) {
+      const mappedOrder = mapOrderToDetailFormat(orderFromState);
+      setOrder(mappedOrder);
+      setLoading(false);
+    } else if (id) {
+      // TODO: Fetch order by ID from API
+      // For now, show loading then redirect back
+      toast.error('Order data not found. Please select an order from the list.');
+      setTimeout(() => navigate('/postex-orders'), 2000);
+    } else {
+      // No order data available
+      toast.error('No order selected. Redirecting to orders list...');
+      setTimeout(() => navigate('/postex-orders'), 2000);
+    }
+  }, [id, location.state, navigate]);
 
   const getStatusColor = (status) => {
     const statusLower = status?.toLowerCase() || '';
@@ -125,16 +265,52 @@ const PostExOrderViewList = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-PK', {
-      style: 'currency',
-      currency: 'PKR',
-      minimumFractionDigits: 2
-    }).format(amount).replace('PKR', 'Rs');
+    if (amount === null || amount === undefined || amount === 0) return '0.00';
+    return `Rs ${parseFloat(amount).toFixed(2)}`;
   };
 
   const formatDate = (dateString) => {
     if (!dateString || dateString === '-') return '-';
     return dateString;
+  };
+
+  // Get icon component for timeline
+  const getTimelineIcon = (iconType, color) => {
+    const iconClass = `w-6 h-6`;
+    const colorClasses = {
+      blue: 'text-blue-600',
+      red: 'text-red-600',
+      green: 'text-green-600',
+      brown: 'text-amber-700',
+      yellow: 'text-yellow-600'
+    };
+
+    switch (iconType) {
+      case 'warehouse':
+        return <Warehouse className={`${iconClass} ${colorClasses[color] || colorClasses.blue}`} />;
+      case 'truck':
+        return <Truck className={`${iconClass} ${colorClasses[color] || colorClasses.green}`} />;
+      case 'refresh':
+        return <RotateCcw className={`${iconClass} ${colorClasses[color] || colorClasses.blue}`} />;
+      case 'package':
+        return <Package className={`${iconClass} ${colorClasses[color] || colorClasses.brown}`} />;
+      case 'check':
+        return <CheckCircle className={`${iconClass} ${colorClasses[color] || colorClasses.green}`} />;
+      default:
+        return <Clock className={`${iconClass} ${colorClasses[color] || colorClasses.yellow}`} />;
+    }
+  };
+
+  // Get background color for timeline icon
+  const getTimelineBgColor = (color) => {
+    const bgColors = {
+      blue: 'bg-blue-100',
+      red: 'bg-red-100',
+      green: 'bg-green-100',
+      brown: 'bg-amber-100',
+      yellow: 'bg-yellow-100'
+    };
+    return bgColors[color] || 'bg-gray-100';
   };
 
   const handleDownload = async () => {
@@ -174,290 +350,202 @@ const PostExOrderViewList = () => {
     }
   };
 
-  if (loading) {
+  if (loading || !order) {
     return <CenteredLoader message="Loading order details..." size="large" />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* PostEx Style Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            {/* Left Side - Logo and Navigation */}
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Truck className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xl font-bold text-gray-900">PostEx</span>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Page Header */}
+        <h1 className="text-3xl font-bold text-purple-900 mb-8">Order Detail</h1>
+
+        {/* Basic Information */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Basic Information</h2>
+          
+          <div className="grid grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Merchant Name:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.merchantName}</span>
               </div>
-              <nav className="hidden md:flex items-center gap-6">
-                <a href="#" className="text-sm font-medium text-gray-700 hover:text-blue-600">Dashboard</a>
-                <a href="#" className="text-sm font-medium text-gray-700 hover:text-blue-600">Cash on Delivery</a>
-                <a href="#" className="text-sm font-medium text-gray-700 hover:text-blue-600">Digital Payments</a>
-                <a href="#" className="text-sm font-medium text-gray-700 hover:text-blue-600">Manage Users</a>
-                <a href="#" className="text-sm font-medium text-gray-700 hover:text-blue-600">Setting</a>
-              </nav>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Tracking Number:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.trackingNumber}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Order Type:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.orderType}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Invoice Amount:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.invoiceAmount)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Booking Weight:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.bookingWeight} (kg)</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Order Delivery Date:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.orderDeliveryDate}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Pickup City:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.pickupCity}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Return City:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.returnCity}</span>
+              </div>
             </div>
             
-            {/* Right Side - Search, Notifications, User */}
-            <div className="flex items-center gap-4">
-              <div className="relative hidden md:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tracking Number"
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                />
+            {/* Right Column */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Order Reference:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.orderReference}</span>
               </div>
-              <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              <button className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <User className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-medium text-gray-700 hidden md:inline">Admin</span>
-              </button>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Order Details:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.orderDetails}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Status:</span>
+                <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold ${getStatusColor(order.status)}`}>
+                  {order.status}
+                </span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Invoice Amount Date:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatDate(order.invoiceAmountDate)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Actual Weight:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.actualWeight} (kg)</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Order Pickup Date:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatDate(order.orderPickupDate)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Pickup Address:</span>
+                <span className="text-sm font-semibold text-green-600 text-right max-w-xs">{order.pickupAddress}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Return Address:</span>
+                <span className="text-sm font-semibold text-green-600 text-right max-w-xs">{order.returnAddress}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900">Order Detail</h1>
-        </div>
-
-        {/* Order Information Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Basic Information */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="lg:col-span-2 card p-6"
-          >
-            <h2 className="text-xl font-bold text-gray-900 mb-6 pb-4 border-b border-gray-200">Basic Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Merchant Name</label>
-                <p className="text-base font-semibold text-gray-900">{order.merchantName}</p>
+        {/* Customer Details */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Customer Details</h2>
+          
+          <div className="grid grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Customer Name:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.customerName}</span>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Tracking Number</label>
-                <p className="text-base font-semibold text-blue-600">{order.trackingNumber}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Order Type</label>
-                <p className="text-base font-semibold text-gray-900">{order.orderType}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Invoice Amount</label>
-                <p className="text-base font-semibold text-gray-900">{formatCurrency(order.invoiceAmount)}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Booking Weight</label>
-                <p className="text-base font-semibold text-gray-900">{order.bookingWeight} kg</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Order Delivery Date</label>
-                <p className="text-base font-semibold text-gray-900">{order.orderDeliveryDate}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Pickup City</label>
-                <p className="text-base font-semibold text-gray-900">{order.pickupCity}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Return City</label>
-                <p className="text-base font-semibold text-gray-900">{order.returnCity}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Order Reference</label>
-                <p className="text-base font-semibold text-gray-900">{order.orderReference}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Order Details</label>
-                <p className="text-base font-semibold text-gray-900">{order.orderDetails}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
-                <div className="mt-1">
-                  <span className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-semibold ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Invoice Amount Date</label>
-                <p className="text-base font-semibold text-gray-900">{formatDate(order.invoiceAmountDate)}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Actual Weight</label>
-                <p className="text-base font-semibold text-gray-900">{order.actualWeight} kg</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Order Pickup Date</label>
-                <p className="text-base font-semibold text-gray-900">{formatDate(order.orderPickupDate)}</p>
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-500 mb-1">Pickup Address</label>
-                <p className="text-base font-semibold text-gray-900">{order.pickupAddress}</p>
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-500 mb-1">Return Address</label>
-                <p className="text-base font-semibold text-gray-900">{order.returnAddress}</p>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Delivery Address:</span>
+                <span className="text-sm font-semibold text-green-600 text-right max-w-xs">{order.deliveryAddress}</span>
               </div>
             </div>
-          </motion.div>
-
-          {/* Customer Details */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="card p-6"
-          >
-            <h2 className="text-xl font-bold text-gray-900 mb-6 pb-4 border-b border-gray-200">Customer Details</h2>
             
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Customer Name</label>
-                <p className="text-base font-semibold text-gray-900">{order.customerName}</p>
+            {/* Right Column */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Customer Phone:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.customerPhone}</span>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Delivery Address</label>
-                <p className="text-base font-semibold text-gray-900">{order.deliveryAddress}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Customer Phone</label>
-                <p className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  {order.customerPhone}
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">City</label>
-                <p className="text-base font-semibold text-gray-900">{order.city}</p>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">City:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.city}</span>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
 
         {/* Payment Details */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="card p-6 mb-8"
-        >
-          <h2 className="text-xl font-bold text-gray-900 mb-6 pb-4 border-b border-gray-200">Payment Details</h2>
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Payment Details</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Received Amount</label>
-              <p className="text-base font-semibold text-gray-900">{formatCurrency(order.receivedAmount)}</p>
+          <div className="grid grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Received Amount:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.receivedAmount)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Balance Amount:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.balanceAmount)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Upfront Payment:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.upfrontPayment)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Upfront Payment Date:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatDate(order.upfrontPaymentDate)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Reserved Payment:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.reservedPayment)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Reserved Payment Date:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatDate(order.reservedPaymentDate)}</span>
+              </div>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Upfront Payment</label>
-              <p className="text-base font-semibold text-gray-900">{formatCurrency(order.upfrontPayment)}</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Reserved Payment</label>
-              <p className="text-base font-semibold text-gray-900">{formatCurrency(order.reservedPayment)}</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">COD Charges</label>
-              <p className="text-base font-semibold text-gray-900">{formatCurrency(order.codCharges)}</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Upfront Charges</label>
-              <p className="text-base font-semibold text-gray-900">{formatCurrency(order.upfrontCharges)}</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Balance Amount</label>
-              <p className="text-base font-semibold text-emerald-600">{formatCurrency(order.balanceAmount)}</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Upfront Payment Date</label>
-              <p className="text-base font-semibold text-gray-900">{formatDate(order.upfrontPaymentDate)}</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Reserved Payment Date</label>
-              <p className="text-base font-semibold text-gray-900">{formatDate(order.reservedPaymentDate)}</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">COD Tax</label>
-              <p className="text-base font-semibold text-gray-900">{formatCurrency(order.codTax)}</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Upfront Tax</label>
-              <p className="text-base font-semibold text-gray-900">{formatCurrency(order.upfrontTax)}</p>
+            {/* Right Column */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">COD Charges:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.codCharges)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">COD Tax:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.codTax)}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Upfront Charges:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.upfrontCharges !== 0 ? formatCurrency(order.upfrontCharges) : '-'}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm font-medium text-gray-700">Upfront Tax:</span>
+                <span className="text-sm font-semibold text-green-600 text-right">{order.upfrontTax !== 0 ? formatCurrency(order.upfrontTax) : '-'}</span>
+              </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Action Buttons */}
         <div className="flex gap-4 mb-8">
           <button
             onClick={() => setShowRemarks(!showRemarks)}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium"
+            className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium"
           >
-            <MessageSquare className="w-5 h-5" />
             View Remarks
           </button>
           <button
-            onClick={() => navigate(-1)}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg transition-colors font-medium"
+            onClick={() => navigate('/postex-orders')}
+            className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium"
           >
-            <ArrowLeft className="w-5 h-5" />
             Back
           </button>
         </div>
 
         {/* Remarks Modal */}
         {showRemarks && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="card p-6 mb-8"
-          >
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Remarks</h3>
               <button
@@ -478,74 +566,47 @@ const PostExOrderViewList = () => {
             ) : (
               <p className="text-sm text-gray-500 text-center py-4">No remarks available</p>
             )}
-          </motion.div>
+          </div>
         )}
 
-        {/* Order Timeline - Horizontal */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="card p-6"
-        >
-          <h2 className="text-xl font-bold text-gray-900 mb-6 pb-4 border-b border-gray-200">Order Journey Timeline</h2>
-          
-          <div className="overflow-x-auto pb-4">
-            <div className="flex gap-4 min-w-max" style={{ minWidth: `${order.timeline.length * 200}px` }}>
-              {order.timeline.map((item, index) => (
-                <div key={index} className="flex flex-col items-center min-w-[180px] relative">
-                  {/* Timeline Line */}
-                  {index < order.timeline.length - 1 && (
-                    <div className="absolute top-6 left-1/2 w-full h-0.5 bg-gray-200 transform translate-x-1/2 z-0"></div>
-                  )}
-                  
-                  {/* Status Icon */}
-                  <div className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full mb-3 ${
-                    item.completed 
-                      ? 'bg-green-500 text-white shadow-lg' 
-                      : 'bg-gray-300 text-gray-600'
-                  }`}>
-                    {item.completed ? (
-                      <CheckCircle className="w-6 h-6" />
-                    ) : (
-                      <Clock className="w-6 h-6" />
+        {/* Order Timeline */}
+        {order.timeline && order.timeline.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Order Timeline</h2>
+            
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-4 min-w-max" style={{ minWidth: `${order.timeline.length * 200}px` }}>
+                {order.timeline.map((item, index) => (
+                  <div key={index} className="flex flex-col items-center min-w-[180px] relative">
+                    {/* Timeline Line */}
+                    {index < order.timeline.length - 1 && (
+                      <div className="absolute top-6 left-1/2 w-full h-0.5 bg-gray-200 transform translate-x-1/2 z-0"></div>
                     )}
-                    {/* Green F badge */}
-                    {item.completed && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-600 rounded-full flex items-center justify-center border-2 border-white">
-                        <span className="text-xs font-bold text-white">F</span>
-                      </div>
-                    )}
+                    
+                    {/* Status Icon */}
+                    <div className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full mb-3 ${getTimelineBgColor(item.color)}`}>
+                      {getTimelineIcon(item.icon, item.color)}
+                      {/* Green F badge for completed statuses */}
+                      {item.completed && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-600 rounded-full flex items-center justify-center border-2 border-white">
+                          <span className="text-xs font-bold text-white">F</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Status Text */}
+                    <div className="text-center">
+                      <p className="text-xs font-semibold text-gray-900 mb-1 leading-tight max-w-[160px]">
+                        {item.status}
+                      </p>
+                      <p className="text-xs text-gray-500">{item.date}</p>
+                    </div>
                   </div>
-                  
-                  {/* Status Text */}
-                  <div className="text-center">
-                    <p className="text-xs font-semibold text-gray-900 mb-1 leading-tight">{item.status}</p>
-                    <p className="text-xs text-gray-500">{item.date}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Footer */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div>
-              <p className="text-sm font-semibold text-gray-900 mb-2">PostEx.</p>
-              <div className="flex gap-4 text-sm text-gray-600">
-                <a href="#" className="hover:text-blue-600">Product</a>
-                <a href="#" className="hover:text-blue-600">PostEx COD</a>
-                <a href="#" className="hover:text-blue-600">Paid</a>
+                ))}
               </div>
             </div>
-            <div className="text-sm text-gray-500 text-center md:text-right">
-              <p>Legal Terms&Conditions</p>
-              <p className="mt-1">Privacy Policy</p>
-            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
