@@ -901,9 +901,7 @@ const PostExOrders = () => {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   AMOUNT
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  JOURNEY
-                </th>
+                
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   STATUS
                 </th>
@@ -1023,11 +1021,7 @@ const PostExOrders = () => {
                       </div>
                     </td>
                     {/* JOURNEY */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button className="px-3 py-1 text-xs font-medium rounded-md bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
-                        Forward
-                      </button>
-                    </td>
+                   
                     {/* STATUS */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
