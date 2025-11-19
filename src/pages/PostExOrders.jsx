@@ -323,7 +323,7 @@ const PostExOrders = () => {
             (order) => order.status === "pending"
           ).length,
           deliveredOrders: mappedOrders.filter(
-            (order) => order.status === "delivered"
+            (order) => order.status === "Delivered"
           ).length,
         };
         setSummaryStats(stats);
@@ -408,10 +408,10 @@ const PostExOrders = () => {
     fetchPostExOrders();
   };
 
-  const handleView = (order) => {
+  const handleView = (trackingNumber) => {
     setOpenDropdownId(null); // Close dropdown after action
     // Navigate to detail page with order data
-    navigate(`/viewlist/${order._id}`, { state: { order } });
+    navigate(`/viewlist/${trackingNumber}`);
   };
 
   const handleCancelOrder = (order) => {
@@ -901,7 +901,7 @@ const PostExOrders = () => {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   AMOUNT
                 </th>
-                
+
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   STATUS
                 </th>
@@ -1021,7 +1021,7 @@ const PostExOrders = () => {
                       </div>
                     </td>
                     {/* JOURNEY */}
-                   
+
                     {/* STATUS */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -1057,7 +1057,7 @@ const PostExOrders = () => {
                           >
                             <div className="py-1">
                               <button
-                                onClick={() => handleView(order)}
+                                onClick={() => handleView(order.trackingNumber)}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
                               >
                                 <Eye className="w-4 h-4" />

@@ -218,14 +218,14 @@ function AppRoutes() {
             </RoleBasedRoute>
           }
         />
-        <Route
+        {/* <Route
           path="viewlist"
           element={
             <RoleBasedRoute allowedRoles={["admin", "manager", "agent"]}>
               <PostExOrderViewList />
             </RoleBasedRoute>
           }
-        />
+        /> */}
         <Route
           path="viewlist/:id"
           element={
