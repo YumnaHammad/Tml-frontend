@@ -76,7 +76,7 @@ const ApprovedSales = () => {
   const handleProceedToPostEx = (saleId) => {
     // Navigate to PostEx order page with the specific sale ID
     console.log("sale id is", saleId);
-    
+
     navigate(`/approved-sales/postex-order/${saleId}`);
   };
 
@@ -508,14 +508,26 @@ const ApprovedSales = () => {
                         )}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleProceedToPostEx(sale._id)}
-                              className="bg-purple-600 hover:bg-purple-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm"
+                            {sale.proceededToPostEx ? (
+                              <button
+                              className="bg-green-600 hover:bg-green-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm"
                               title="Proceed to PostEx"
+                              disabled
                             >
                               <CheckCircle className="w-3 h-3 mr-1" />
-                              Proceed To PostEx
+                              Proceeded
                             </button>
+                            ) : (
+                              <button
+                                onClick={() => handleProceedToPostEx(sale._id)}
+                                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm"
+                                title="Proceed to PostEx"
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Proceed To PostEx
+                              </button>
+                            )}
+
                             <button
                               onClick={() => handleView(sale)}
                               className="bg-blue-600 hover:bg-blue-700 text-white flex items-center text-xs px-2 py-1 rounded transition-colors shadow-sm"

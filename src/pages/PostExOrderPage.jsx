@@ -58,6 +58,22 @@ const PostExOrderPage = () => {
       addressType: "Default Address",
     },
   ];
+  // update postex status
+  const updatePostExStatus = async (saleId) => {
+    try {
+      const response = await axios.post(
+        `/api/sales-orders/update-postex-status`,
+        {
+          postExStatus: true,
+          id: saleId,
+        }
+      );
+      toast.success("PostEx status updated successfully");
+      console.log("PostEx status updated:", response.data);
+    } catch (error) {
+      console.error("Error updating postex status:", error);
+    }
+  };
 
   // Create Axios instance for PostEx API
   const postExApi = axios.create({
@@ -113,6 +129,7 @@ const PostExOrderPage = () => {
           response.data.statusCode === "200" ||
           response.data.status === "200"
         ) {
+          updatePostExStatus(saleId);
           return {
             success: true,
             data: response.data,
