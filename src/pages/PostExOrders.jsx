@@ -258,19 +258,6 @@ const PostExOrders = () => {
         });
       }
 
-      // Amount range filter
-      if (amountRangeFilter.min) {
-        const minAmount = parseFloat(amountRangeFilter.min);
-        filteredOrders = filteredOrders.filter(
-          (order) => (order.orderAmount || 0) >= minAmount
-        );
-      }
-      if (amountRangeFilter.max) {
-        const maxAmount = parseFloat(amountRangeFilter.max);
-        filteredOrders = filteredOrders.filter(
-          (order) => (order.orderAmount || 0) <= maxAmount
-        );
-      }
 
       // Update total count
       setTotalOrdersCount(filteredOrders.length);
@@ -288,7 +275,6 @@ const PostExOrders = () => {
       cityFilter,
       orderTypeFilter,
       dateRangeFilter,
-      amountRangeFilter,
       currentPage,
       itemsPerPage,
     ]
@@ -330,7 +316,7 @@ const PostExOrders = () => {
         let ordersData = data.dist || [];
         console.log("Orders data from API:", ordersData.length);
 
-        // Map API orders to local format
+      // Map API orders to local format
         const mappedOrders = ordersData.length > 0 
           ? ordersData.map(mapPostExOrderToLocalFormat)
           : [];
@@ -449,8 +435,6 @@ const PostExOrders = () => {
     orderTypeFilter,
     dateRangeFilter.startDate,
     dateRangeFilter.endDate,
-    amountRangeFilter.min,
-    amountRangeFilter.max,
     currentPage,
     itemsPerPage,
     applyFilters,
@@ -619,7 +603,6 @@ const PostExOrders = () => {
         .split("T")[0],
       endDate: new Date().toISOString().split("T")[0],
     });
-    setAmountRangeFilter({ min: "", max: "" });
     setCurrentPage(1);
   };
 
@@ -753,9 +736,7 @@ const PostExOrders = () => {
               cityFilter ||
               orderTypeFilter ||
               dateRangeFilter.startDate ||
-              dateRangeFilter.endDate ||
-              amountRangeFilter.min ||
-              amountRangeFilter.max) && (
+              dateRangeFilter.endDate) && (
               <button
                 onClick={clearFilters}
                 className="flex items-center px-3 py-2 text-sm text-red-600 hover:text-red-700 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
@@ -881,44 +862,6 @@ const PostExOrders = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <DollarSign className="w-4 h-4 inline mr-1" />
-                  Min Amount
-                </label>
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={amountRangeFilter.min}
-                  onChange={(e) => {
-                    setAmountRangeFilter((prev) => ({
-                      ...prev,
-                      min: e.target.value,
-                    }));
-                    setCurrentPage(1);
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <DollarSign className="w-4 h-4 inline mr-1" />
-                  Max Amount
-                </label>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={amountRangeFilter.max}
-                  onChange={(e) => {
-                    setAmountRangeFilter((prev) => ({
-                      ...prev,
-                      max: e.target.value,
-                    }));
-                    setCurrentPage(1);
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
             </div>
           </motion.div>
         )}
@@ -960,9 +903,7 @@ const PostExOrders = () => {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   AMOUNT
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  JOURNEY
-                </th>
+                
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   STATUS
                 </th>
@@ -1082,11 +1023,7 @@ const PostExOrders = () => {
                       </div>
                     </td>
                     {/* JOURNEY */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button className="px-3 py-1 text-xs font-medium rounded-md bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
-                        Forward
-                      </button>
-                    </td>
+                   
                     {/* STATUS */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
