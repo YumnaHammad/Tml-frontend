@@ -22,6 +22,7 @@ import {
   Ban,
   MessageSquare,
   Edit,
+  RotateCcw,
 } from "lucide-react";
 import CenteredLoader from "../components/CenteredLoader";
 import { useNavigate } from "react-router-dom";
@@ -44,7 +45,7 @@ const PostExOrders = () => {
   const [showRemarksModal, setShowRemarksModal] = useState(false);
   const [orderForRemarks, setOrderForRemarks] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(""); // Empty means "All Orders"
   const [cityFilter, setCityFilter] = useState("");
   const [orderTypeFilter, setOrderTypeFilter] = useState("");
   const [dateRangeFilter, setDateRangeFilter] = useState({
@@ -62,6 +63,7 @@ const PostExOrders = () => {
     totalOrders: 0,
     totalRevenue: 0,
     pendingOrders: 0,
+    returnedOrders: 0,
     deliveredOrders: 0,
   });
   const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -136,7 +138,7 @@ const PostExOrders = () => {
   // Map PostEx status to local status format
   const mapPostExStatusToLocal = (postExStatus) => {
     if (!postExStatus) return "pending";
-
+    
     const statusLower = postExStatus.toLowerCase();
     if (
       statusLower.includes("pending") ||
@@ -196,9 +198,32 @@ const PostExOrders = () => {
       }
 
       // Status filter
-      if (statusFilter) {
+      if (statusFilter && statusFilter !== "All Orders") {
+        // Map filter label to order status
+        const statusMap = {
+          "Unbooked": "pending",
+          "Booked": "submitted",
+          "PostEx WareHouse": "in_transit",
+          "Out For Delivery": "in_transit",
+          "Delivered": "delivered",
+          "Returned": "cancelled",
+          "Un-Assigned By Me": "pending",
+          "Expired": "cancelled",
+          "Delivery Under Review": "pending",
+          "Picked By PostEx": "submitted",
+          "Out For Return": "cancelled",
+          "Attempted": "in_transit",
+          "En-Route to PostEx warehouse": "in_transit"
+        };
+        
+        const mappedStatus = statusMap[statusFilter] || statusFilter.toLowerCase();
         filteredOrders = filteredOrders.filter(
-          (order) => order.status === statusFilter
+          (order) => {
+            const orderStatus = order.status?.toLowerCase() || "";
+            return orderStatus === mappedStatus || 
+                   orderStatus.includes(mappedStatus) ||
+                   order.status === statusFilter;
+          }
         );
       }
 
@@ -306,7 +331,9 @@ const PostExOrders = () => {
         console.log("Orders data from API:", ordersData.length);
 
         // Map API orders to local format
-        const mappedOrders = ordersData.map(mapPostExOrderToLocalFormat);
+        const mappedOrders = ordersData.length > 0 
+          ? ordersData.map(mapPostExOrderToLocalFormat)
+          : [];
         console.log("Mapped orders count:", mappedOrders.length);
 
         // Store all orders
@@ -320,10 +347,22 @@ const PostExOrders = () => {
             0
           ),
           pendingOrders: mappedOrders.filter(
-            (order) => order.status === "pending"
+            (order) => {
+              const status = order.status?.toLowerCase() || "";
+              return status.includes("pending") || status.includes("unbooked");
+            }
+          ).length,
+          returnedOrders: mappedOrders.filter(
+            (order) => {
+              const status = order.status?.toLowerCase() || "";
+              return status.includes("returned") || status.includes("cancelled");
+            }
           ).length,
           deliveredOrders: mappedOrders.filter(
-            (order) => order.status === "delivered"
+            (order) => {
+              const status = order.status?.toLowerCase() || "";
+              return status.includes("delivered");
+            }
           ).length,
         };
         setSummaryStats(stats);
@@ -333,10 +372,17 @@ const PostExOrders = () => {
         if (mappedOrders.length > 0) {
           applyFilters(mappedOrders);
         } else {
-          // If no orders, clear the filtered results
+          // If no orders, clear the filtered results and reset stats
           setOrders([]);
           setTotalOrdersCount(0);
-          console.log("No orders found, clearing table");
+          setSummaryStats({
+            totalOrders: 0,
+            totalRevenue: 0,
+            pendingOrders: 0,
+            returnedOrders: 0,
+            deliveredOrders: 0,
+          });
+          console.log("No orders found, clearing table and resetting stats");
         }
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -359,10 +405,18 @@ const PostExOrders = () => {
         console.error("Error message:", error.message);
       }
       console.error("Error config:", error.config);
-
+      
       setOrders([]);
       setTotalOrdersCount(0);
-
+      // Reset summary stats on error
+      setSummaryStats({
+        totalOrders: 0,
+        totalRevenue: 0,
+        pendingOrders: 0,
+        returnedOrders: 0,
+        deliveredOrders: 0,
+      });
+      
       let errorMessage = "Failed to load PostEx orders: ";
       if (error.response) {
         errorMessage += `Server responded with status ${error.response.status}`;
@@ -380,11 +434,12 @@ const PostExOrders = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [dateRangeFilter.startDate, dateRangeFilter.endDate, applyFilters]);
+  }, [dateRangeFilter.startDate, dateRangeFilter.endDate]); // Removed applyFilters to prevent re-fetching on filter changes
 
-  // Reapply filters when filters change
+  // Reapply filters when filters change (client-side only, no API call, no page reload)
   useEffect(() => {
     if (allOrders.length > 0) {
+      // Apply filters to already loaded data - instant, no loading state
       applyFilters(allOrders);
     }
   }, [
@@ -392,8 +447,10 @@ const PostExOrders = () => {
     statusFilter,
     cityFilter,
     orderTypeFilter,
-    dateRangeFilter,
-    amountRangeFilter,
+    dateRangeFilter.startDate,
+    dateRangeFilter.endDate,
+    amountRangeFilter.min,
+    amountRangeFilter.max,
     currentPage,
     itemsPerPage,
     applyFilters,
@@ -436,7 +493,7 @@ const PostExOrders = () => {
 
       // Refresh the orders list
       fetchPostExOrders();
-    } catch (error) {
+      } catch (error) {
       console.error("Error cancelling order:", error);
       toast.error("Failed to cancel order. Please try again.");
     }
@@ -604,9 +661,12 @@ const PostExOrders = () => {
             <div>
               <p className="text-blue-100 text-sm font-medium mb-1">
                 Total Orders
+                <span className="text-blue-200 text-xs font-normal ml-2">
+                  (Rs {summaryStats.totalRevenue.toLocaleString()})
+                </span>
               </p>
               <p className="text-3xl font-bold">{summaryStats.totalOrders}</p>
-            </div>
+        </div>
             <div className="bg-blue-400 bg-opacity-30 rounded-lg p-3">
               <Package className="w-8 h-8" />
             </div>
@@ -617,19 +677,17 @@ const PostExOrders = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="card p-6 bg-gradient-to-br from-green-500 to-green-600 text-white"
+          className="card p-6 bg-gradient-to-br from-orange-500 to-orange-600 text-white"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm font-medium mb-1">
-                Total Revenue
+              <p className="text-orange-100 text-sm font-medium mb-1">
+                Returned Orders
               </p>
-              <p className="text-3xl font-bold">
-                Rs {summaryStats.totalRevenue.toLocaleString()}
-              </p>
+              <p className="text-3xl font-bold">{summaryStats.returnedOrders}</p>
             </div>
-            <div className="bg-green-400 bg-opacity-30 rounded-lg p-3">
-              <DollarSign className="w-8 h-8" />
+            <div className="bg-orange-400 bg-opacity-30 rounded-lg p-3">
+              <RotateCcw className="w-8 h-8" />
             </div>
           </div>
         </motion.div>
@@ -725,9 +783,10 @@ const PostExOrders = () => {
           </div>
           <div>
             <select
-              value={statusFilter}
+              value={statusFilter || "All Orders"}
               onChange={(e) => {
-                setStatusFilter(e.target.value);
+                e.preventDefault();
+                setStatusFilter(e.target.value === "All Orders" ? "" : e.target.value);
                 setCurrentPage(1);
               }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -753,7 +812,7 @@ const PostExOrders = () => {
               <option value="Reverse">Reverse</option>
               <option value="Replacement">Replacement</option>
             </select>
-          </div>
+        </div>
         </div>
 
         {/* Advanced Filters */}
@@ -1062,28 +1121,28 @@ const PostExOrders = () => {
                             className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
                           >
                             <div className="py-1">
-                              <button
-                                onClick={() => handleView(order)}
+                        <button
+                          onClick={() => handleView(order)}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
-                              >
-                                <Eye className="w-4 h-4" />
+                        >
+                          <Eye className="w-4 h-4" />
                                 View Detail
-                              </button>
+                        </button>
                               {isUnbookedStatus(order.status) ? (
-                                <button
-                                  onClick={() => handleViewRemarks(order)}
-                                  className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition-colors"
-                                >
-                                  <MessageSquare className="w-4 h-4" />
-                                  View Remarks
-                                </button>
-                              ) : (
                                 <button
                                   onClick={() => handleCancelOrder(order)}
                                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                                 >
                                   <Ban className="w-4 h-4" />
                                   Cancel Order
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleViewRemarks(order)}
+                                  className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                                >
+                                  <MessageSquare className="w-4 h-4" />
+                                  View Remarks
                                 </button>
                               )}
                             </div>
