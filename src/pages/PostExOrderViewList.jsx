@@ -7,7 +7,8 @@ import {
   CheckCircle,
   AlertCircle,
   RotateCcw,
-  Package
+  Package,
+  ArrowLeft
 } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -358,7 +359,16 @@ const PostExOrderViewList = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
         {/* Page Header */}
-        <h1 className="text-3xl font-bold text-purple-900 mb-8">Order Detail</h1>
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/postex-orders')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back</span>
+          </button>
+          <h1 className="text-3xl font-bold text-purple-900">Order Detail</h1>
+        </div>
 
         {/* Basic Information */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
