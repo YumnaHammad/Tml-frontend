@@ -107,9 +107,8 @@ const PostExOrders = () => {
         apiOrder.invoicePayment || apiOrder.orderAmount || apiOrder.amount || 0
       ),
       orderType: apiOrder.orderType || "Normal",
-      status: mapPostExStatusToLocal(
-        apiOrder.transactionStatus || apiOrder.status || apiOrder.orderStatus
-      ),
+      status:
+        apiOrder.transactionStatus || apiOrder.status || apiOrder.orderStatus,
       deliveryCity: apiOrder.cityName || apiOrder.deliveryCity || "N/A",
       deliveryAddress: apiOrder.deliveryAddress || "N/A",
       items: apiOrder.items || 1,
@@ -137,7 +136,7 @@ const PostExOrders = () => {
   // Map PostEx status to local status format
   const mapPostExStatusToLocal = (postExStatus) => {
     if (!postExStatus) return "pending";
-    
+
     const statusLower = postExStatus.toLowerCase();
     if (
       statusLower.includes("pending") ||
@@ -189,8 +188,8 @@ const PostExOrders = () => {
         const query = searchQuery.toLowerCase();
         filteredOrders = filteredOrders.filter(
           (order) =>
-          order.orderReferenceNumber?.toLowerCase().includes(query) ||
-          order.customerName?.toLowerCase().includes(query) ||
+            order.orderReferenceNumber?.toLowerCase().includes(query) ||
+            order.customerName?.toLowerCase().includes(query) ||
             order.customerContact?.toLowerCase().includes(query) ||
             order.trackingNumber?.toLowerCase().includes(query)
         );
@@ -335,8 +334,8 @@ const PostExOrders = () => {
           applyFilters(mappedOrders);
         } else {
           // If no orders, clear the filtered results
-      setOrders([]);
-      setTotalOrdersCount(0);
+          setOrders([]);
+          setTotalOrdersCount(0);
           console.log("No orders found, clearing table");
         }
       } else {
@@ -423,21 +422,23 @@ const PostExOrders = () => {
 
   const handleConfirmCancel = async () => {
     if (!orderToCancel) return;
-    
+
     try {
       // TODO: Implement actual cancel order API call
       // Example:
       // await api.post(`/postex/orders/${orderToCancel._id}/cancel`);
-      
-      toast.success(`Order ${orderToCancel.orderReferenceNumber} has been cancelled`);
+
+      toast.success(
+        `Order ${orderToCancel.orderReferenceNumber} has been cancelled`
+      );
       setShowCancelModal(false);
       setOrderToCancel(null);
-      
+
       // Refresh the orders list
       fetchPostExOrders();
-      } catch (error) {
-      console.error('Error cancelling order:', error);
-      toast.error('Failed to cancel order. Please try again.');
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      toast.error("Failed to cancel order. Please try again.");
     }
   };
 
@@ -466,45 +467,47 @@ const PostExOrders = () => {
         id: 1,
         remark: "REFUSED TO RECEIVE",
         userName: "Call Courier",
-        date: "2025-11-10"
+        date: "2025-11-10",
       },
       {
         id: 2,
         remark: "REDELIVERY AS SOON AS POSSIBLE",
         userName: "Tml Mart",
-        date: "2025-11-10"
+        date: "2025-11-10",
       },
       {
         id: 3,
         remark: "REFUSED TO RECEIVE",
         userName: "Call Courier",
-        date: "2025-11-12"
-      }
+        date: "2025-11-12",
+      },
     ];
   };
 
   const handleEditRemark = (remark) => {
     // TODO: Implement edit remark functionality
-    toast.info(`Edit remark functionality for "${remark.remark}" will be implemented`);
+    toast.info(
+      `Edit remark functionality for "${remark.remark}" will be implemented`
+    );
   };
 
   // Check if order status is unbooked/pending
   const isUnbookedStatus = (status) => {
-    const statusLower = status?.toLowerCase() || '';
-    return statusLower.includes('pending') || statusLower.includes('unbooked');
+    const statusLower = status?.toLowerCase() || "";
+    return statusLower.includes("pending") || statusLower.includes("unbooked");
   };
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('.dropdown-container')) {
+      if (!event.target.closest(".dropdown-container")) {
         setOpenDropdownId(null);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -603,7 +606,7 @@ const PostExOrders = () => {
                 Total Orders
               </p>
               <p className="text-3xl font-bold">{summaryStats.totalOrders}</p>
-        </div>
+            </div>
             <div className="bg-blue-400 bg-opacity-30 rounded-lg p-3">
               <Package className="w-8 h-8" />
             </div>
@@ -751,7 +754,7 @@ const PostExOrders = () => {
               <option value="Reverse">Reverse</option>
               <option value="Replacement">Replacement</option>
             </select>
-        </div>
+          </div>
         </div>
 
         {/* Advanced Filters */}
@@ -1041,13 +1044,17 @@ const PostExOrders = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="relative dropdown-container">
                         <button
-                          onClick={() => setOpenDropdownId(openDropdownId === order._id ? null : order._id)}
+                          onClick={() =>
+                            setOpenDropdownId(
+                              openDropdownId === order._id ? null : order._id
+                            )
+                          }
                           className="text-gray-600 hover:text-gray-900 p-1 rounded-md hover:bg-gray-100 transition-colors"
                           title="Actions"
                         >
                           <MoreVertical className="w-5 h-5" />
                         </button>
-                        
+
                         {openDropdownId === order._id && (
                           <motion.div
                             initial={{ opacity: 0, y: -10 }}
@@ -1056,13 +1063,13 @@ const PostExOrders = () => {
                             className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
                           >
                             <div className="py-1">
-                        <button
-                          onClick={() => handleView(order)}
+                              <button
+                                onClick={() => handleView(order)}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
-                        >
-                          <Eye className="w-4 h-4" />
+                              >
+                                <Eye className="w-4 h-4" />
                                 View Detail
-                        </button>
+                              </button>
                               {isUnbookedStatus(order.status) ? (
                                 <button
                                   onClick={() => handleViewRemarks(order)}
@@ -1444,7 +1451,9 @@ const PostExOrders = () => {
             <div className="p-6">
               {/* Header */}
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Cancel Order</h2>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Cancel Order
+                </h2>
                 <button
                   onClick={handleCloseCancelModal}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1460,7 +1469,10 @@ const PostExOrders = () => {
                 </p>
                 {orderToCancel && (
                   <p className="text-sm text-gray-500 mt-2">
-                    Order Reference: <span className="font-semibold">{orderToCancel.orderReferenceNumber}</span>
+                    Order Reference:{" "}
+                    <span className="font-semibold">
+                      {orderToCancel.orderReferenceNumber}
+                    </span>
                   </p>
                 )}
               </div>
@@ -1496,7 +1508,9 @@ const PostExOrders = () => {
             <div className="p-6">
               {/* Header */}
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">View Remarks</h2>
+                <h2 className="text-xl font-bold text-gray-900">
+                  View Remarks
+                </h2>
                 <button
                   onClick={handleCloseRemarksModal}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1527,7 +1541,10 @@ const PostExOrders = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {getOrderRemarks(orderForRemarks).length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                        <td
+                          colSpan={4}
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
                           No remarks available
                         </td>
                       </tr>
@@ -1535,13 +1552,19 @@ const PostExOrders = () => {
                       getOrderRemarks(orderForRemarks).map((remark) => (
                         <tr key={remark.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{remark.remark}</div>
+                            <div className="text-sm text-gray-900">
+                              {remark.remark}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{remark.userName}</div>
+                            <div className="text-sm text-gray-900">
+                              {remark.userName}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{remark.date}</div>
+                            <div className="text-sm text-gray-900">
+                              {remark.date}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <button
