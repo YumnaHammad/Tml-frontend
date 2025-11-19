@@ -732,12 +732,11 @@ const PostExOrders = () => {
               }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="submitted">Submitted</option>
-              <option value="in_transit">In Transit</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
+              {statusOptions.map((status, i) => (
+                <option key={i} value={status.label}>
+                  {status.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>
