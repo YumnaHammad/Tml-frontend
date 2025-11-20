@@ -8,7 +8,18 @@ import {
   AlertCircle,
   RotateCcw,
   Package,
-  ArrowLeft
+  ArrowLeft,
+  FileText,
+  User,
+  Phone,
+  MapPin,
+  DollarSign,
+  Calendar,
+  Weight,
+  Building2,
+  CreditCard,
+  MessageSquare,
+  History
 } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -372,41 +383,68 @@ const PostExOrderViewList = () => {
 
         {/* Basic Information */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Basic Information</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-purple-600" />
+            Basic Information
+          </h2>
           
           <div className="grid grid-cols-2 gap-6">
             {/* Left Column */}
             <div className="space-y-4">
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Merchant Name:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-gray-500" />
+                  Merchant Name:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.merchantName}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Tracking Number:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-gray-500" />
+                  Tracking Number:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.trackingNumber}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Order Type:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-gray-500" />
+                  Order Type:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.orderType}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Invoice Amount:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-500" />
+                  Invoice Amount:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.invoiceAmount)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Booking Weight:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Weight className="w-4 h-4 text-gray-500" />
+                  Booking Weight:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.bookingWeight} (kg)</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Order Delivery Date:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  Order Delivery Date:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.orderDeliveryDate}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Pickup City:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  Pickup City:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.pickupCity}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Return City:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  Return City:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.returnCity}</span>
               </div>
             </div>
@@ -414,37 +452,61 @@ const PostExOrderViewList = () => {
             {/* Right Column */}
             <div className="space-y-4">
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Order Reference:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-gray-500" />
+                  Order Reference:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.orderReference}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Order Details:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-gray-500" />
+                  Order Details:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.orderDetails}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Status:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-gray-500" />
+                  Status:
+                </span>
                 <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold ${getStatusColor(order.status)}`}>
                   {order.status}
                 </span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Invoice Amount Date:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  Invoice Amount Date:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatDate(order.invoiceAmountDate)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Actual Weight:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Weight className="w-4 h-4 text-gray-500" />
+                  Actual Weight:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.actualWeight} (kg)</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Order Pickup Date:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  Order Pickup Date:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatDate(order.orderPickupDate)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Pickup Address:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  Pickup Address:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right max-w-xs">{order.pickupAddress}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Return Address:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  Return Address:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right max-w-xs">{order.returnAddress}</span>
               </div>
             </div>
@@ -453,17 +515,26 @@ const PostExOrderViewList = () => {
 
         {/* Customer Details */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Customer Details</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <User className="w-5 h-5 text-purple-600" />
+            Customer Details
+          </h2>
           
           <div className="grid grid-cols-2 gap-6">
             {/* Left Column */}
             <div className="space-y-4">
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Customer Name:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-500" />
+                  Customer Name:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.customerName}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Delivery Address:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  Delivery Address:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right max-w-xs">{order.deliveryAddress}</span>
               </div>
             </div>
@@ -471,11 +542,17 @@ const PostExOrderViewList = () => {
             {/* Right Column */}
             <div className="space-y-4">
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Customer Phone:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-500" />
+                  Customer Phone:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.customerPhone}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">City:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  City:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.city}</span>
               </div>
             </div>
@@ -484,33 +561,54 @@ const PostExOrderViewList = () => {
 
         {/* Payment Details */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Payment Details</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-purple-600" />
+            Payment Details
+          </h2>
           
           <div className="grid grid-cols-2 gap-6">
             {/* Left Column */}
             <div className="space-y-4">
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Received Amount:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-500" />
+                  Received Amount:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.receivedAmount)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Balance Amount:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-gray-500" />
+                  Balance Amount:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.balanceAmount)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Upfront Payment:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-500" />
+                  Upfront Payment:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.upfrontPayment)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Upfront Payment Date:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  Upfront Payment Date:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatDate(order.upfrontPaymentDate)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Reserved Payment:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-gray-500" />
+                  Reserved Payment:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.reservedPayment)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Reserved Payment Date:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  Reserved Payment Date:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatDate(order.reservedPaymentDate)}</span>
               </div>
             </div>
@@ -518,19 +616,31 @@ const PostExOrderViewList = () => {
             {/* Right Column */}
             <div className="space-y-4">
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">COD Charges:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-500" />
+                  COD Charges:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.codCharges)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">COD Tax:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-gray-500" />
+                  COD Tax:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{formatCurrency(order.codTax)}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Upfront Charges:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-500" />
+                  Upfront Charges:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.upfrontCharges !== 0 ? formatCurrency(order.upfrontCharges) : '-'}</span>
               </div>
               <div className="flex justify-between items-start">
-                <span className="text-sm font-medium text-gray-700">Upfront Tax:</span>
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-gray-500" />
+                  Upfront Tax:
+                </span>
                 <span className="text-sm font-semibold text-green-600 text-right">{order.upfrontTax !== 0 ? formatCurrency(order.upfrontTax) : '-'}</span>
               </div>
             </div>
@@ -541,14 +651,16 @@ const PostExOrderViewList = () => {
         <div className="flex gap-4 mb-8">
           <button
             onClick={() => setShowRemarks(!showRemarks)}
-            className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium"
+            className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
           >
+            <MessageSquare className="w-4 h-4" />
             View Remarks
           </button>
           <button
             onClick={() => navigate('/postex-orders')}
-            className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium"
+            className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
           >
+            <ArrowLeft className="w-4 h-4" />
             Back
           </button>
         </div>
@@ -582,7 +694,10 @@ const PostExOrderViewList = () => {
         {/* Order Timeline */}
         {order.timeline && order.timeline.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Order Timeline</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <History className="w-5 h-5 text-purple-600" />
+              Order Timeline
+            </h2>
             
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-4 min-w-max" style={{ minWidth: `${order.timeline.length * 200}px` }}>
