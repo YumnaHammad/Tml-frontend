@@ -162,7 +162,7 @@ const PostExOrders = () => {
       statusLower.includes("attempted")
     )
       return "in_transit";
-    if (statusLower.includes("delivered") || statusLower.includes("completed"))
+    if (statusLower.includes("delivered") )
       return "delivered";
     if (
       statusLower.includes("cancelled") ||
@@ -199,30 +199,90 @@ const PostExOrders = () => {
 
       // Status filter
       if (statusFilter && statusFilter !== "All Orders") {
-        // Map filter label to order status
+        // Map filter label to possible PostEx API status values
         const statusMap = {
-          "Unbooked": "pending",
-          "Booked": "submitted",
-          "PostEx WareHouse": "in_transit",
-          "Out For Delivery": "in_transit",
-          "Delivered": "delivered",
-          "Returned": "cancelled",
-          "Un-Assigned By Me": "pending",
-          "Expired": "cancelled",
-          "Delivery Under Review": "pending",
-          "Picked By PostEx": "submitted",
-          "Out For Return": "cancelled",
-          "Attempted": "in_transit",
-          "En-Route to PostEx warehouse": "in_transit"
+          "Unbooked": ["unbooked", "pending", "un-assigned", "unassigned"],
+          "Booked": ["booked", "confirmed", "submitted"],
+          "PostEx WareHouse": ["postex warehouse", "warehouse", "at warehouse", "in warehouse"],
+          "Out For Delivery": ["out for delivery", "out_for_delivery", "outfordelivery"],
+          "Delivered": ["delivered", "delivery completed"],
+          "Returned": ["returned", "return"],
+          "Un-Assigned By Me": ["un-assigned by me", "unassigned by me", "un-assigned"],
+          "Expired": ["expired"],
+          "Delivery Under Review": ["delivery under review", "under review"],
+          "Picked By PostEx": ["picked by postex", "pickedbypostex"],
+          "Out For Return": ["out for return", "out_for_return", "outforreturn"],
+          "Attempted": ["attempted", "attempt"],
+          "En-Route to PostEx warehouse": ["en-route to postex warehouse", "enroute to postex warehouse", "en route to postex warehouse"]
         };
         
-        const mappedStatus = statusMap[statusFilter] || statusFilter.toLowerCase();
+        const possibleStatuses = statusMap[statusFilter] || [statusFilter.toLowerCase()];
+        const filterLabelLower = statusFilter.toLowerCase();
+        
         filteredOrders = filteredOrders.filter(
           (order) => {
-            const orderStatus = order.status?.toLowerCase() || "";
-            return orderStatus === mappedStatus || 
-                   orderStatus.includes(mappedStatus) ||
-                   order.status === statusFilter;
+            const orderStatus = (order.status || order.transactionStatus || "").toLowerCase().trim();
+            const orderStatusOriginal = (order.status || order.transactionStatus || "").trim();
+            
+            // Special handling for "Booked" vs "Unbooked" to prevent false matches
+            if (filterLabelLower === "booked") {
+              // For "Booked" filter, explicitly exclude "unbooked" orders first
+              if (orderStatus.includes("unbooked") || 
+                  (orderStatus.startsWith("un-") && orderStatus.includes("booked")) ||
+                  orderStatus.startsWith("unassigned")) {
+                return false;
+              }
+              // Match booked, confirmed, submitted (but not unbooked)
+              if (orderStatus === "booked" || 
+                  orderStatus === "confirmed" || 
+                  orderStatus === "submitted" ||
+                  (orderStatus.includes("booked") && !orderStatus.includes("unbooked") && !orderStatus.startsWith("un-"))) {
+                return true;
+              }
+              return false;
+            }
+            
+            // Special handling for "Unbooked" filter
+            if (filterLabelLower === "unbooked") {
+              // Only match unbooked, pending, un-assigned
+              if (orderStatus === "unbooked" || 
+                  orderStatus === "pending" || 
+                  orderStatus.includes("un-assigned") ||
+                  orderStatus.includes("unassigned")) {
+                // Make sure it's not booked
+                if (orderStatus.includes("booked") && !orderStatus.includes("unbooked")) {
+                  return false;
+                }
+                return true;
+              }
+              return false;
+            }
+            
+            // Direct exact match with filter label (case-insensitive)
+            if (orderStatus === filterLabelLower || orderStatusOriginal === statusFilter) {
+              return true;
+            }
+            
+            // Check against possible status variations
+            for (const possibleStatus of possibleStatuses) {
+              // Exact match
+              if (orderStatus === possibleStatus) {
+                return true;
+              }
+              // Check if order status contains the possible status (but be careful with partial matches)
+              // Use word boundary for better matching
+              const escapedStatus = possibleStatus.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const regex = new RegExp(`(^|\\s)${escapedStatus}(\\s|$)`, 'i');
+              if (regex.test(orderStatus)) {
+                return true;
+              }
+              // Also check if order status starts with the possible status
+              if (orderStatus.startsWith(possibleStatus + " ") || orderStatus.startsWith(possibleStatus + "-")) {
+                return true;
+              }
+            }
+            
+            return false;
           }
         );
       }
@@ -550,20 +610,59 @@ const PostExOrders = () => {
   }, []);
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "submitted":
-        return "bg-blue-100 text-blue-800";
-      case "in_transit":
-        return "bg-purple-100 text-purple-800";
-      case "delivered":
-        return "bg-green-100 text-green-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+    if (!status) return "bg-gray-100 text-gray-800";
+    
+    const statusLower = status.toLowerCase();
+    
+    // Unbooked, Un-Assigned By Me, Delivery Under Review
+    if (
+      statusLower.includes("unbooked") ||
+      statusLower.includes("un-assigned") ||
+      statusLower.includes("under review") ||
+      statusLower.includes("pending")
+    ) {
+      return "bg-yellow-100 text-yellow-800";
     }
+    
+    // Booked, Picked By PostEx, En-Route to PostEx warehouse
+    if (
+      statusLower.includes("booked") ||
+      statusLower.includes("picked") ||
+      statusLower.includes("en-route") ||
+      statusLower.includes("submitted") ||
+      statusLower.includes("confirmed")
+    ) {
+      return "bg-blue-100 text-blue-800";
+    }
+    
+    // PostEx WareHouse, Out For Delivery, Attempted
+    if (
+      statusLower.includes("warehouse") ||
+      statusLower.includes("out for delivery") ||
+      statusLower.includes("attempted") ||
+      statusLower.includes("transit") ||
+      statusLower.includes("in_transit")
+    ) {
+      return "bg-purple-100 text-purple-800";
+    }
+    
+    // Delivered
+    if (statusLower.includes("delivered")) {
+      return "bg-green-100 text-green-800";
+    }
+    
+    // Returned, Out For Return, Expired
+    if (
+      statusLower.includes("returned") ||
+      statusLower.includes("out for return") ||
+      statusLower.includes("expired") ||
+      statusLower.includes("cancelled") ||
+      statusLower.includes("canceled")
+    ) {
+      return "bg-red-100 text-red-800";
+    }
+    
+    return "bg-gray-100 text-gray-800";
   };
 
   const formatDate = (dateString) => {
