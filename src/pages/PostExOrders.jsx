@@ -162,7 +162,7 @@ const PostExOrders = () => {
       statusLower.includes("attempted")
     )
       return "in_transit";
-    if (statusLower.includes("delivered") || statusLower.includes("completed"))
+    if (statusLower.includes("delivered") )
       return "delivered";
     if (
       statusLower.includes("cancelled") ||
@@ -199,7 +199,7 @@ const PostExOrders = () => {
 
       // Status filter
       if (statusFilter && statusFilter !== "All Orders") {
-        // Map filter label to order status
+        // Map filter label to possible PostEx API status values
         const statusMap = {
           Unbooked: "pending",
           Booked: "submitted",
@@ -586,20 +586,59 @@ const PostExOrders = () => {
   }, []);
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "submitted":
-        return "bg-blue-100 text-blue-800";
-      case "in_transit":
-        return "bg-purple-100 text-purple-800";
-      case "delivered":
-        return "bg-green-100 text-green-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+    if (!status) return "bg-gray-100 text-gray-800";
+    
+    const statusLower = status.toLowerCase();
+    
+    // Unbooked, Un-Assigned By Me, Delivery Under Review
+    if (
+      statusLower.includes("unbooked") ||
+      statusLower.includes("un-assigned") ||
+      statusLower.includes("under review") ||
+      statusLower.includes("pending")
+    ) {
+      return "bg-yellow-100 text-yellow-800";
     }
+    
+    // Booked, Picked By PostEx, En-Route to PostEx warehouse
+    if (
+      statusLower.includes("booked") ||
+      statusLower.includes("picked") ||
+      statusLower.includes("en-route") ||
+      statusLower.includes("submitted") ||
+      statusLower.includes("confirmed")
+    ) {
+      return "bg-blue-100 text-blue-800";
+    }
+    
+    // PostEx WareHouse, Out For Delivery, Attempted
+    if (
+      statusLower.includes("warehouse") ||
+      statusLower.includes("out for delivery") ||
+      statusLower.includes("attempted") ||
+      statusLower.includes("transit") ||
+      statusLower.includes("in_transit")
+    ) {
+      return "bg-purple-100 text-purple-800";
+    }
+    
+    // Delivered
+    if (statusLower.includes("delivered")) {
+      return "bg-green-100 text-green-800";
+    }
+    
+    // Returned, Out For Return, Expired
+    if (
+      statusLower.includes("returned") ||
+      statusLower.includes("out for return") ||
+      statusLower.includes("expired") ||
+      statusLower.includes("cancelled") ||
+      statusLower.includes("canceled")
+    ) {
+      return "bg-red-100 text-red-800";
+    }
+    
+    return "bg-gray-100 text-gray-800";
   };
 
   const formatDate = (dateString) => {

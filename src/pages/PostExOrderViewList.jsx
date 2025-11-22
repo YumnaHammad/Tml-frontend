@@ -367,6 +367,61 @@ const PostExOrderViewList = () => {
   useEffect(() => {
     fetchOrder();
   }, [id]);
+  // Get icon type from status message
+  const getIconTypeFromStatus = (statusMessage) => {
+    if (!statusMessage) return "clock";
+    const statusLower = statusMessage.toLowerCase();
+    
+    if (statusLower.includes("warehouse") || statusLower.includes("at tml")) {
+      return "warehouse";
+    }
+    if (statusLower.includes("departed") || statusLower.includes("en-route") || statusLower.includes("enroute")) {
+      return "truck";
+    }
+    if (statusLower.includes("received") || statusLower.includes("arrived")) {
+      return "warehouse";
+    }
+    if (statusLower.includes("delivered")) {
+      return "check";
+    }
+    if (statusLower.includes("return") || statusLower.includes("attempted")) {
+      return "refresh";
+    }
+    if (statusLower.includes("review")) {
+      return "package";
+    }
+    return "clock";
+  };
+
+  // Get color from status message
+  const getColorFromStatus = (statusMessage) => {
+    if (!statusMessage) return "yellow";
+    const statusLower = statusMessage.toLowerCase();
+    
+    if (statusLower.includes("warehouse") || statusLower.includes("at tml")) {
+      return "blue";
+    }
+    if (statusLower.includes("departed") || statusLower.includes("en-route")) {
+      return "green";
+    }
+    if (statusLower.includes("received") || statusLower.includes("arrived")) {
+      return "red";
+    }
+    if (statusLower.includes("delivered")) {
+      return "green";
+    }
+    if (statusLower.includes("return")) {
+      return "red";
+    }
+    if (statusLower.includes("attempted")) {
+      return "blue";
+    }
+    if (statusLower.includes("review")) {
+      return "brown";
+    }
+    return "yellow";
+  };
+
   // Get background color for timeline icon
   const getTimelineBgColor = (color) => {
     const bgColors = {
@@ -806,15 +861,20 @@ const PostExOrderViewList = () => {
                     >
                       {/* Timeline Line */}
                       {index < order.transactionStatusHistory.length - 1 && (
-                        <div className="absolute top-6 left-1/2 w-full h-0.5 bg-gray-200 transform translate-x-1/2 z-0"></div>
+                        <div className="absolute top-8 left-1/2 w-full h-0.5 bg-gray-200 transform translate-x-1/2 z-0"></div>
                       )}
 
                       {/* Status Icon */}
                       <div
-                        className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full mb-3 ${getTimelineBgColor(
-                          item.color
+                        className={`relative z-10 flex items-center justify-center w-14 h-14 rounded-full mb-3 mt-2 p-2 ${getTimelineBgColor(
+                          getColorFromStatus(item.transactionStatusMessage)
                         )}`}
                       >
+                        {/* Icon based on status message */}
+                        {getTimelineIcon(
+                          getIconTypeFromStatus(item.transactionStatusMessage),
+                          getColorFromStatus(item.transactionStatusMessage)
+                        )}
                         {/* Green F badge for completed statuses */}
                         {item.returnRequested === true ? (
                           <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center border-2 border-white">
