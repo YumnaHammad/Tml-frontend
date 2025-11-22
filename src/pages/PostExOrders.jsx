@@ -138,7 +138,7 @@ const PostExOrders = () => {
   // Map PostEx status to local status format
   const mapPostExStatusToLocal = (postExStatus) => {
     if (!postExStatus) return "pending";
-    
+
     const statusLower = postExStatus.toLowerCase();
     if (
       statusLower.includes("pending") ||
@@ -201,30 +201,31 @@ const PostExOrders = () => {
       if (statusFilter && statusFilter !== "All Orders") {
         // Map filter label to order status
         const statusMap = {
-          "Unbooked": "pending",
-          "Booked": "submitted",
+          Unbooked: "pending",
+          Booked: "submitted",
           "PostEx WareHouse": "in_transit",
           "Out For Delivery": "in_transit",
-          "Delivered": "delivered",
-          "Returned": "cancelled",
+          Delivered: "delivered",
+          Returned: "cancelled",
           "Un-Assigned By Me": "pending",
-          "Expired": "cancelled",
+          Expired: "cancelled",
           "Delivery Under Review": "pending",
           "Picked By PostEx": "submitted",
           "Out For Return": "cancelled",
-          "Attempted": "in_transit",
-          "En-Route to PostEx warehouse": "in_transit"
+          Attempted: "in_transit",
+          "En-Route to PostEx warehouse": "in_transit",
         };
-        
-        const mappedStatus = statusMap[statusFilter] || statusFilter.toLowerCase();
-        filteredOrders = filteredOrders.filter(
-          (order) => {
-            const orderStatus = order.status?.toLowerCase() || "";
-            return orderStatus === mappedStatus || 
-                   orderStatus.includes(mappedStatus) ||
-                   order.status === statusFilter;
-          }
-        );
+
+        const mappedStatus =
+          statusMap[statusFilter] || statusFilter.toLowerCase();
+        filteredOrders = filteredOrders.filter((order) => {
+          const orderStatus = order.status?.toLowerCase() || "";
+          return (
+            orderStatus === mappedStatus ||
+            orderStatus.includes(mappedStatus) ||
+            order.status === statusFilter
+          );
+        });
       }
 
       // City filter
@@ -257,7 +258,6 @@ const PostExOrders = () => {
           return orderDate <= endDate;
         });
       }
-
 
       // Update total count
       setTotalOrdersCount(filteredOrders.length);
@@ -316,10 +316,11 @@ const PostExOrders = () => {
         let ordersData = data.dist || [];
         console.log("Orders data from API:", ordersData.length);
 
-      // Map API orders to local format
-        const mappedOrders = ordersData.length > 0 
-          ? ordersData.map(mapPostExOrderToLocalFormat)
-          : [];
+        // Map API orders to local format
+        const mappedOrders =
+          ordersData.length > 0
+            ? ordersData.map(mapPostExOrderToLocalFormat)
+            : [];
         console.log("Mapped orders count:", mappedOrders.length);
 
         // Store all orders
@@ -332,18 +333,14 @@ const PostExOrders = () => {
             (sum, order) => sum + (order.orderAmount || 0),
             0
           ),
-          pendingOrders: mappedOrders.filter(
-            (order) => {
-              const status = order.status?.toLowerCase() || "";
-              return status.includes("pending") || status.includes("unbooked");
-            }
-          ).length,
-          returnedOrders: mappedOrders.filter(
-            (order) => {
-              const status = order.status?.toLowerCase() || "";
-              return status.includes("returned") || status.includes("cancelled");
-            }
-          ).length,
+          pendingOrders: mappedOrders.filter((order) => {
+            const status = order.status?.toLowerCase() || "";
+            return status.includes("pending") || status.includes("unbooked");
+          }).length,
+          returnedOrders: mappedOrders.filter((order) => {
+            const status = order.status?.toLowerCase() || "";
+            return status.includes("returned") || status.includes("cancelled");
+          }).length,
           deliveredOrders: mappedOrders.filter(
             (order) => order.status === "Delivered"
           ).length,
@@ -388,7 +385,7 @@ const PostExOrders = () => {
         console.error("Error message:", error.message);
       }
       console.error("Error config:", error.config);
-      
+
       setOrders([]);
       setTotalOrdersCount(0);
       // Reset summary stats on error
@@ -399,7 +396,7 @@ const PostExOrders = () => {
         returnedOrders: 0,
         deliveredOrders: 0,
       });
-      
+
       let errorMessage = "Failed to load PostEx orders: ";
       if (error.response) {
         errorMessage += `Server responded with status ${error.response.status}`;
@@ -458,13 +455,22 @@ const PostExOrders = () => {
     setOpenDropdownId(null); // Close dropdown after action
   };
 
-  const handleConfirmCancel = async () => {
+  const handleConfirmCancel = async (trackingNumber) => {
     if (!orderToCancel) return;
+    console.log("the traking id to cancel the order is ", trackingNumber);
 
     try {
-      // TODO: Implement actual cancel order API call
-      // Example:
-      // await api.post(`/postex/orders/${orderToCancel._id}/cancel`);
+      const response = await axios.put(
+        "https://api.postex.pk/services/integration/api/order/v1/cancel-order",
+        { trackingNumber },
+        {
+          headers: {
+            token:
+              "ZThkODBkYzg4NjBkNDE0YzgxOWUxZGZkM2U0YjNjYjc6ZDk2ZjE5NjBjNzU2NDk3MThmZDc2MmExYTgyYWY5MmY=",
+          },
+        }
+      );
+      console.log("cacnel response is", response);
 
       toast.success(
         `Order ${orderToCancel.orderReferenceNumber} has been cancelled`
@@ -474,7 +480,7 @@ const PostExOrders = () => {
 
       // Refresh the orders list
       fetchPostExOrders();
-      } catch (error) {
+    } catch (error) {
       console.error("Error cancelling order:", error);
       toast.error("Failed to cancel order. Please try again.");
     }
@@ -494,6 +500,36 @@ const PostExOrders = () => {
   const handleCloseRemarksModal = () => {
     setShowRemarksModal(false);
     setOrderForRemarks(null);
+  };
+  const handlePrintInvoice = async (trackingNumber) => {
+    try {
+      const response = await axios.get(
+        "https://api.postex.pk/services/integration/api/order/v1/get-invoice",
+        {
+          responseType: "blob", // PDF blob
+          params: {
+            trackingNumbers: trackingNumber, // <-- your tracking number
+          },
+          headers: {
+            token:
+              "ZThkODBkYzg4NjBkNDE0YzgxOWUxZGZkM2U0YjNjYjc6ZDk2ZjE5NjBjNzU2NDk3MThmZDc2MmExYTgyYWY5MmY=", // <-- your PostEx token
+          },
+        }
+      );
+
+      // Convert Blob to PDF URL
+      const fileURL = URL.createObjectURL(response.data);
+
+      // Open in new tab
+      const newTab = window.open(fileURL);
+
+      // Auto-print when loaded
+      newTab.onload = () => {
+        newTab.print();
+      };
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+    }
   };
 
   // Get remarks for an order (sample data - replace with API call)
@@ -646,7 +682,7 @@ const PostExOrders = () => {
                 </span>
               </p>
               <p className="text-3xl font-bold">{summaryStats.totalOrders}</p>
-        </div>
+            </div>
             <div className="bg-blue-400 bg-opacity-30 rounded-lg p-3">
               <Package className="w-8 h-8" />
             </div>
@@ -664,7 +700,9 @@ const PostExOrders = () => {
               <p className="text-orange-100 text-sm font-medium mb-1">
                 Returned Orders
               </p>
-              <p className="text-3xl font-bold">{summaryStats.returnedOrders}</p>
+              <p className="text-3xl font-bold">
+                {summaryStats.returnedOrders}
+              </p>
             </div>
             <div className="bg-orange-400 bg-opacity-30 rounded-lg p-3">
               <RotateCcw className="w-8 h-8" />
@@ -764,7 +802,9 @@ const PostExOrders = () => {
               value={statusFilter || "All Orders"}
               onChange={(e) => {
                 e.preventDefault();
-                setStatusFilter(e.target.value === "All Orders" ? "" : e.target.value);
+                setStatusFilter(
+                  e.target.value === "All Orders" ? "" : e.target.value
+                );
                 setCurrentPage(1);
               }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -790,7 +830,7 @@ const PostExOrders = () => {
               <option value="Reverse">Reverse</option>
               <option value="Replacement">Replacement</option>
             </select>
-        </div>
+          </div>
         </div>
 
         {/* Advanced Filters */}
@@ -1046,6 +1086,13 @@ const PostExOrders = () => {
                         >
                           <MoreVertical className="w-5 h-5" />
                         </button>
+                        <button
+                          onClick={() =>
+                            handlePrintInvoice(order.trackingNumber)
+                          }
+                        >
+                          🖨️ Print 
+                        </button>
 
                         {openDropdownId === order._id && (
                           <motion.div
@@ -1058,10 +1105,10 @@ const PostExOrders = () => {
                               <button
                                 onClick={() => handleView(order.trackingNumber)}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
-                        >
-                          <Eye className="w-4 h-4" />
+                              >
+                                <Eye className="w-4 h-4" />
                                 View Detail
-                        </button>
+                              </button>
                               {isUnbookedStatus(order.status) ? (
                                 <button
                                   onClick={() => handleCancelOrder(order)}
@@ -1478,7 +1525,7 @@ const PostExOrders = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleConfirmCancel}
+                  onClick={handleConfirmCancel(orderToCancel.trackingNumber)}
                   className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
                 >
                   Confirm

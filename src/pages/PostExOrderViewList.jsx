@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Package,
   ArrowLeft,
+  MessageSquare
 } from "lucide-react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";

@@ -218,6 +218,7 @@ const PostExOrderPage = () => {
             deliveryAddress: sale.deliveryAddress?.street || "",
             items: sale.items?.length?.toString() || "1",
             notes: sale.notes || "",
+            bookingWeight: 0.5,
           }));
         } catch (error) {
           console.error("Error fetching sale data:", error);
@@ -535,19 +536,16 @@ const PostExOrderPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Delivery City <span className="text-red-500">*</span>
                 </label>
-                <select
+
+                <input
+                  type="text"
                   name="deliveryCity"
                   value={postExFormData.deliveryCity}
                   onChange={handlePostExFormChange}
+                  placeholder="Enter Delivery City"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
-                >
-                  <option value="">Select City</option>
-                  <option value="Rawalpindi">Rawalpindi</option>
-                  <option value="Islamabad">Islamabad</option>
-                  <option value="Karachi">Karachi</option>
-                  <option value="Lahore">Lahore</option>
-                </select>
+                />
               </div>
 
               <div className="md:col-span-2">
