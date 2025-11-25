@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Edit,
   RotateCcw,
+  Printer,
 } from "lucide-react";
 import CenteredLoader from "../components/CenteredLoader";
 import { useNavigate } from "react-router-dom";
@@ -983,6 +984,9 @@ const PostExOrders = () => {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   STATUS
                 </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  PRINT
+                </th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   ACTIONS
                 </th>
@@ -993,7 +997,7 @@ const PostExOrders = () => {
               {orders.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={13}
+                    colSpan={14}
                     className="px-6 py-8 text-center text-gray-500"
                   >
                     No PostEx orders found.
@@ -1111,6 +1115,19 @@ const PostExOrders = () => {
                           "PENDING"}
                       </span>
                     </td>
+                    {/* PRINT */}
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <button
+                        onClick={() =>
+                          handlePrintInvoice(order.trackingNumber)
+                        }
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-all duration-200 hover:shadow-sm min-w-[100px]"
+                        title="Print Invoice"
+                      >
+                        <Printer className="w-4 h-4 flex-shrink-0" />
+                        <span>Print</span>
+                      </button>
+                    </td>
                     {/* ACTIONS */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="relative dropdown-container">
@@ -1124,13 +1141,6 @@ const PostExOrders = () => {
                           title="Actions"
                         >
                           <MoreVertical className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            handlePrintInvoice(order.trackingNumber)
-                          }
-                        >
-                          🖨️ Print 
                         </button>
 
                         {openDropdownId === order._id && (
