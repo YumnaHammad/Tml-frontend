@@ -59,19 +59,53 @@ const PostExOrderPage = () => {
     },
   ];
   // update postex status
-  const updatePostExStatus = async (saleId) => {
+  const updatePostExStatus = async (saleId, trackingNumber) => {
     try {
       const response = await axios.post(
         `/api/sales-orders/update-postex-status`,
         {
           postExStatus: true,
           id: saleId,
+          trackingNumber: trackingNumber,
         }
       );
+      await updateWharehuse(saleId, "Unbooked");
       toast.success("PostEx status updated successfully");
       console.log("PostEx status updated:", response.data);
     } catch (error) {
       console.error("Error updating postex status:", error);
+    }
+  };
+
+  const updateWharehuse = async (saleId, newStatus) => {
+    console.log("He tried to run me for updating whsrer house");
+
+    try {
+      const response = await api.patch(`/sales/${saleId}/status`, {
+        status: newStatus,
+      });
+      console.log(
+        "Status updated successfully fro whare house:",
+        response.data
+      );
+    } catch (error) {
+      console.error("Error updating status:", error);
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        saleId,
+        newStatus,
+      });
+      if (loadingToast) {
+        toast.dismiss(loadingToast);
+      }
+
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to update status";
+      toast.error(errorMessage);
     }
   };
 
@@ -129,12 +163,13 @@ const PostExOrderPage = () => {
           response.data.statusCode === "200" ||
           response.data.status === "200"
         ) {
-          updatePostExStatus(saleId);
+          console.log("postex response is", response);
+          const trackingNumber = response.data.dist.trackingNumber;
+          updatePostExStatus(saleId, trackingNumber);
           return {
             success: true,
             data: response.data,
-            trackingNumber:
-              response.data.trackingNumber || response.data.orderId,
+            trackingNumber: response.data.dist.trackingNumber,
             orderId: response.data.orderId,
           };
         } else {
