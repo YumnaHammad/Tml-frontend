@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   CheckCircle,
@@ -27,6 +27,8 @@ const ApprovedSales = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
+  const [selectedSales, setSelectedSales] = useState([]); // Array of sale IDs for bulk actions
+  const selectAllCheckboxRef = useRef(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -198,18 +200,49 @@ const ApprovedSales = () => {
               <h3 className="text-lg font-semibold text-gray-900">
                 Approved Sales Records ({totalSalesCount} total)
               </h3>
-              <button
-                onClick={() => navigate("/approved-sales/postex-order")}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-medium"
-              >
-                <CheckCircle className="w-4 h-4" />
-                Proceed to PostEx
-              </button>
+              <div className="flex items-center gap-2">
+                {user?.role !== "agent" && selectedSales.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => handleBulkQCStatusUpdate("approved")}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Approve QC ({selectedSales.length})
+                    </button>
+                    <button
+                      onClick={() => handleBulkQCStatusUpdate("rejected")}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+                    >
+                      <X className="w-4 h-4" />
+                      Reject QC ({selectedSales.length})
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => navigate("/approved-sales/postex-order")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-medium"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Proceed to PostEx
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    {user?.role !== "agent" && (
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                        <input
+                          type="checkbox"
+                          ref={selectAllCheckboxRef}
+                          checked={allSelected}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Order Number
                     </th>
@@ -260,7 +293,7 @@ const ApprovedSales = () => {
                   {currentSales.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={user?.role !== "agent" ? 12 : 11}
+                        colSpan={user?.role !== "agent" ? 13 : 12}
                         className="px-6 py-8 text-center text-gray-500"
                       >
                         No approved sales orders found.
@@ -269,6 +302,17 @@ const ApprovedSales = () => {
                   ) : (
                     currentSales.map((sale) => (
                       <tr key={sale._id} className="hover:bg-gray-50">
+                        {/* CHECKBOX */}
+                        {user?.role !== "agent" && (
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedSales.includes(sale._id)}
+                              onChange={() => handleSelectSale(sale._id)}
+                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                          </td>
+                        )}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
                             {sale.orderNumber}

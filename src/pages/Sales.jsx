@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Truck,
@@ -63,6 +63,8 @@ const Sales = () => {
   const [itemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState(""); // Search filter for phone number, CN number, and agent name
   const [totalSalesCount, setTotalSalesCount] = useState(0); // Total sales count from server
+  const [selectedSales, setSelectedSales] = useState([]); // Array of sale IDs for bulk actions
+  const selectAllCheckboxRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth(); // Get user role for access control
@@ -813,6 +815,81 @@ const Sales = () => {
     }
   };
 
+  // Bulk QC status update
+  const handleBulkQCStatusUpdate = async (qcStatus) => {
+    if (selectedSales.length === 0) {
+      toast.error("Please select at least one sale to update");
+      return;
+    }
+
+    let loadingToast;
+    try {
+      loadingToast = toast.loading(`Updating QC status for ${selectedSales.length} sale(s) to ${qcStatus}...`);
+      
+      // Update all selected sales
+      const updatePromises = selectedSales.map(saleId =>
+        api.put(`/sales/${saleId}/qc-status`, { qcStatus })
+      );
+      
+      await Promise.all(updatePromises);
+      
+      // Update local state
+      setSales((prevSales) =>
+        prevSales.map((sale) =>
+          selectedSales.includes(sale._id) ? { ...sale, qcStatus: qcStatus } : sale
+        )
+      );
+      
+      toast.dismiss(loadingToast);
+      toast.success(`Successfully updated ${selectedSales.length} sale(s) to ${qcStatus}!`);
+      
+      setSelectedSales([]); // Clear selection
+      fetchSales(); // Refresh to get updated data
+    } catch (error) {
+      console.error("Error updating bulk QC status:", error);
+      if (loadingToast) {
+        toast.dismiss(loadingToast);
+      }
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to update QC status";
+      toast.error(errorMessage);
+    }
+  };
+
+  // Handle checkbox selection
+  const handleSelectSale = (saleId) => {
+    setSelectedSales(prev => {
+      if (prev.includes(saleId)) {
+        return prev.filter(id => id !== saleId);
+      } else {
+        return [...prev, saleId];
+      }
+    });
+  };
+
+  // Handle select all
+  const handleSelectAll = () => {
+    if (selectedSales.length === currentSales.length) {
+      setSelectedSales([]);
+    } else {
+      const allSaleIds = currentSales.map(sale => sale._id);
+      setSelectedSales(allSaleIds);
+    }
+  };
+
+  // Check if all sales are selected
+  const allSelected = currentSales.length > 0 && selectedSales.length === currentSales.length;
+  const someSelected = selectedSales.length > 0 && selectedSales.length < currentSales.length;
+
+  // Set indeterminate state for select all checkbox
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = someSelected;
+    }
+  }, [someSelected]);
+
   // Change sales status
   const handleStatusChange = async (saleId, newStatus) => {
     let loadingToast;
@@ -1339,6 +1416,24 @@ const Sales = () => {
             total)
           </h2>
           <div className="flex items-center space-x-4 flex-wrap">
+            {user?.role !== "agent" && selectedSales.length > 0 && (
+              <>
+                <button
+                  onClick={() => handleBulkQCStatusUpdate("approved")}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Approve QC ({selectedSales.length})
+                </button>
+                <button
+                  onClick={() => handleBulkQCStatusUpdate("rejected")}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Reject QC ({selectedSales.length})
+                </button>
+              </>
+            )}
             <select
               value={sortFilter}
               onChange={(e) => handleSortChange(e.target.value)}
@@ -1419,6 +1514,17 @@ const Sales = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        {user?.role !== "agent" && (
+                          <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                            <input
+                              type="checkbox"
+                              ref={selectAllCheckboxRef}
+                              checked={allSelected}
+                              onChange={handleSelectAll}
+                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                          </th>
+                        )}
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Order Number
                         </th>
@@ -1485,6 +1591,17 @@ const Sales = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {currentSales.map((sale) => (
                         <tr key={sale._id} className="hover:bg-gray-50">
+                          {/* CHECKBOX */}
+                          {user?.role !== "agent" && (
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedSales.includes(sale._id)}
+                                onChange={() => handleSelectSale(sale._id)}
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                            </td>
+                          )}
                           {/* Order Number */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-semibold text-gray-900">
