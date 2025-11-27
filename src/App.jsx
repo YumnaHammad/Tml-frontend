@@ -40,6 +40,7 @@ import ExpectedReturns from "./pages/ExpectedReturns";
 import CityReports from "./pages/CityReports";
 import Finance from "./pages/Finance";
 import Unauthorized from "./pages/Unauthorized";
+import Leads from "./pages/Leads";
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -375,6 +376,16 @@ function AppRoutes() {
           element={
             <RoleBasedRoute allowedRoles={["admin"]}>
               <Settings />
+            </RoleBasedRoute>
+          }
+        />
+
+        {/* CRM - Leads */}
+        <Route
+          path="crm"
+          element={
+            <RoleBasedRoute allowedRoles={["admin", "manager", "agent"]}>
+              <Leads />
             </RoleBasedRoute>
           }
         />

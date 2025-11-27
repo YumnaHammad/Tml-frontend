@@ -20,6 +20,7 @@ import {
   MapPin,
   Users,
   CheckCircle,
+  UserPlus,
 } from "lucide-react";
 
 const Sidebar = ({ isMobileOpen, setIsMobileOpen, onCollapseChange }) => {
@@ -57,6 +58,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen, onCollapseChange }) => {
       { name: "Approved Sales", href: "/approved-sales", icon: CheckCircle },
       { name: "PostEx Orders", href: "/postex-orders", icon: Truck },
       { name: "Suppliers", href: "/suppliers", icon: Building2 },
+      { name: "CRM", href: "/crm", icon: UserPlus },
       { name: "Reports", href: "/reports", icon: BarChart3 },
       { name: "Finance", href: "/finance", icon: DollarSign },
       { name: "User Management", href: "/users", icon: Users },

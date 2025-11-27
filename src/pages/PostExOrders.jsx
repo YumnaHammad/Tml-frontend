@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import {
@@ -68,6 +68,8 @@ const PostExOrders = () => {
     deliveredOrders: 0,
   });
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [selectedOrders, setSelectedOrders] = useState([]); // Array of tracking numbers
+  const selectAllCheckboxRef = useRef(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -530,8 +532,74 @@ const PostExOrders = () => {
       };
     } catch (error) {
       console.error("Error fetching invoice:", error);
+      toast.error("Failed to print invoice");
     }
   };
+
+  // Handle bulk print
+  const handleBulkPrint = async () => {
+    if (selectedOrders.length === 0) {
+      toast.error("Please select at least one order to print");
+      return;
+    }
+
+    try {
+      toast.loading(`Printing ${selectedOrders.length} invoice(s)...`);
+      
+      // Print each invoice separately (PostEx API may not support multiple in one call)
+      for (let i = 0; i < selectedOrders.length; i++) {
+        const trackingNumber = selectedOrders[i];
+        await handlePrintInvoice(trackingNumber);
+        
+        // Add a small delay between prints to avoid overwhelming the browser
+        if (i < selectedOrders.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      toast.dismiss();
+      toast.success(`Successfully printed ${selectedOrders.length} invoice(s)`);
+      setSelectedOrders([]); // Clear selection after printing
+    } catch (error) {
+      console.error("Error in bulk print:", error);
+      toast.dismiss();
+      toast.error("Failed to print some invoices");
+    }
+  };
+
+  // Handle checkbox selection
+  const handleSelectOrder = (trackingNumber) => {
+    setSelectedOrders(prev => {
+      if (prev.includes(trackingNumber)) {
+        return prev.filter(tn => tn !== trackingNumber);
+      } else {
+        return [...prev, trackingNumber];
+      }
+    });
+  };
+
+  // Handle select all
+  const handleSelectAll = () => {
+    if (selectedOrders.length === orders.length) {
+      setSelectedOrders([]);
+    } else {
+      const allTrackingNumbers = orders
+        .filter(order => order.trackingNumber)
+        .map(order => order.trackingNumber);
+      setSelectedOrders(allTrackingNumbers);
+    }
+  };
+
+  // Check if all orders are selected
+  const allSelected = orders.length > 0 && selectedOrders.length === orders.length;
+  const someSelected = selectedOrders.length > 0 && selectedOrders.length < orders.length;
+
+  // Set indeterminate state for select all checkbox
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = someSelected;
+    }
+  }, [someSelected]);
 
   // Get remarks for an order (sample data - replace with API call)
   const getOrderRemarks = (order) => {
@@ -799,6 +867,15 @@ const PostExOrders = () => {
             Filters
           </h3>
           <div className="flex items-center gap-2">
+            {selectedOrders.length > 0 && (
+              <button
+                onClick={handleBulkPrint}
+                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Print Selected ({selectedOrders.length})
+              </button>
+            )}
             <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className="flex items-center px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -950,6 +1027,15 @@ const PostExOrders = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                  <input
+                    type="checkbox"
+                    ref={selectAllCheckboxRef}
+                    checked={allSelected}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   S.NO
                 </th>
@@ -997,7 +1083,7 @@ const PostExOrders = () => {
               {orders.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={14}
+                    colSpan={15}
                     className="px-6 py-8 text-center text-gray-500"
                   >
                     No PostEx orders found.
@@ -1006,6 +1092,15 @@ const PostExOrders = () => {
               ) : (
                 orders.map((order, index) => (
                   <tr key={order._id} className="hover:bg-gray-50">
+                    {/* CHECKBOX */}
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrders.includes(order.trackingNumber)}
+                        onChange={() => handleSelectOrder(order.trackingNumber)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </td>
                     {/* SERIAL NUMBER */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
