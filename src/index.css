@@ -40,7 +40,29 @@ input[type="number"] {
     /* Slightly tighter line height for more compact UI */
     line-height: 1.5;
   }
-  
+  /* Add to your global CSS */
+.card {
+  @apply bg-white rounded-xl border border-gray-200 shadow-sm;
+}
+
+/* Custom scrollbar */
+.conversation-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversation-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.conversation-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.conversation-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
   * {
     @apply border-gray-200;
   }
