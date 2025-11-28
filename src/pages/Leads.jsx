@@ -22,7 +22,6 @@ import {
   List,
   Grid3X3,
   RefreshCw,
-  Printer,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
@@ -45,8 +44,6 @@ const Leads = () => {
   const [timeFilter, setTimeFilter] = useState("all"); // 'all', 'day', 'week', 'month', 'year', 'custom'
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
-  const [selectedConversations, setSelectedConversations] = useState([]); // Array of phone numbers
-  const selectAllCheckboxRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   // Fetch conversations
