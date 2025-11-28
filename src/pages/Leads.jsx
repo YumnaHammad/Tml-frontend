@@ -45,6 +45,8 @@ const Leads = () => {
   const [timeFilter, setTimeFilter] = useState("all"); // 'all', 'day', 'week', 'month', 'year', 'custom'
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
+  const [selectedConversations, setSelectedConversations] = useState([]); // Array of phone numbers
+  const selectAllCheckboxRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   // Fetch conversations
