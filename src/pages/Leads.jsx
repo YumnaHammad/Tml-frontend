@@ -442,11 +442,14 @@ const Leads = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <div className="flex items-center space-x-4 text-sm">
                   <span className="text-blue-700 font-medium">
-                    {filteredConversations.reduce((total, conv) => total + (conv.unreadCount || 0), 0)} unread
+                    {filteredConversations.filter((c) => {
+                      const unread = Number(c.unreadCount) || 0;
+                      return unread > 0;
+                    }).length} unread
                   </span>
                   <span className="text-gray-500">•</span>
                   <span className="text-green-600 font-medium">
-                    {filteredConversations.filter(c => c.isActive).length} active
+                    {filteredConversations.filter(c => c.isActive === true).length} active
                   </span>
                 </div>
               </div>
@@ -475,17 +478,23 @@ const Leads = () => {
 
               <div className="flex space-x-2">
                 {[
-                  { key: "all", label: "All", count: conversations.length },
+                  { 
+                    key: "all", 
+                    label: "All", 
+                    count: filteredConversations.length 
+                  },
                   {
                     key: "unread",
                     label: "Unread",
-                    count: conversations.filter((c) => c.unreadCount > 0)
-                      .length,
+                    count: filteredConversations.filter((c) => {
+                      const unread = Number(c.unreadCount) || 0;
+                      return unread > 0;
+                    }).length,
                   },
                   {
                     key: "active",
                     label: "Active",
-                    count: conversations.filter((c) => c.isActive).length,
+                    count: filteredConversations.filter((c) => c.isActive === true).length,
                   },
                 ].map(({ key, label, count }) => (
                   <button
