@@ -22,6 +22,7 @@ import {
   List,
   Grid3X3,
   RefreshCw,
+  Printer,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
@@ -44,18 +45,19 @@ const Leads = () => {
   const [timeFilter, setTimeFilter] = useState("all"); // 'all', 'day', 'week', 'month', 'year', 'custom'
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
-  const [customStartTime, setCustomStartTime] = useState("00:00");
-  const [customEndTime, setCustomEndTime] = useState("23:59");
   const messagesEndRef = useRef(null);
 
   // Fetch conversations
   const fetchConversations = async () => {
     try {
       setRefreshing(true);
+      // Fetch all conversations without limit
       const response = await axios.get(
-        "/api/conversations"
+        "/api/conversations?limit=1000"
       );
-      setConversations(response.data.data.conversations || []);
+      const allConversations = response.data.data?.conversations || response.data.data || [];
+      console.log("Total conversations fetched:", allConversations.length);
+      setConversations(allConversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
       toast.error("Failed to load conversations");
@@ -169,12 +171,10 @@ const Leads = () => {
           break;
         case "custom":
           if (customStartDate && customEndDate) {
-            const [startHour, startMin] = customStartTime.split(":").map(Number);
-            const [endHour, endMin] = customEndTime.split(":").map(Number);
             startDate = new Date(customStartDate);
-            startDate.setHours(startHour, startMin, 0, 0);
+            startDate.setHours(0, 0, 0, 0);
             endDate = new Date(customEndDate);
-            endDate.setHours(endHour, endMin, 59, 999);
+            endDate.setHours(23, 59, 59, 999);
           } else {
             matchesDate = true; // If dates not set, show all
             break;
@@ -193,6 +193,15 @@ const Leads = () => {
 
     return matchesSearch && matchesFilter && matchesDate;
   });
+
+  // Debug: Log filtered conversations count
+  useEffect(() => {
+    if (conversations.length > 0) {
+      console.log("Total conversations:", conversations.length);
+      console.log("Filtered conversations:", filteredConversations.length);
+      console.log("Filter:", filter, "TimeFilter:", timeFilter, "Search:", searchTerm);
+    }
+  }, [conversations.length, filteredConversations.length, filter, timeFilter, searchTerm]);
 
   // Handle export to Excel
   const handleExportConversations = async (format = "excel") => {
@@ -434,11 +443,11 @@ const Leads = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <div className="flex items-center space-x-4 text-sm">
                   <span className="text-blue-700 font-medium">
-                    {stats.totalUnread || 0} unread
+                    {filteredConversations.reduce((total, conv) => total + (conv.unreadCount || 0), 0)} unread
                   </span>
                   <span className="text-gray-500">•</span>
                   <span className="text-green-600 font-medium">
-                    {stats.activeConversations || 0} active
+                    {filteredConversations.filter(c => c.isActive).length} active
                   </span>
                 </div>
               </div>
@@ -523,7 +532,7 @@ const Leads = () => {
                   <option value="custom">Custom Range</option>
                 </select>
 
-                {/* Custom Date Range with Time */}
+                {/* Custom Date Range */}
                 {timeFilter === "custom" && (
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-2">
@@ -534,12 +543,6 @@ const Leads = () => {
                         onChange={(e) => setCustomStartDate(e.target.value)}
                         className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <input
-                        type="time"
-                        value={customStartTime}
-                        onChange={(e) => setCustomStartTime(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                      />
                     </div>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-600 whitespace-nowrap">To:</label>
@@ -547,12 +550,6 @@ const Leads = () => {
                         type="date"
                         value={customEndDate}
                         onChange={(e) => setCustomEndDate(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      <input
-                        type="time"
-                        value={customEndTime}
-                        onChange={(e) => setCustomEndTime(e.target.value)}
                         className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
