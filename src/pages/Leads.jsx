@@ -40,7 +40,7 @@ const Leads = () => {
   const fetchConversations = async () => {
     try {
       const response = await axios.get(
-        "http://159.198.32.23:3002/api/conversations"
+        "/api/conversations"
       );
       setConversations(response.data.data.conversations || []);
     } catch (error) {
@@ -53,7 +53,7 @@ const Leads = () => {
   const fetchStats = async () => {
     try {
       const response = await axios.get(
-        "http://159.198.32.23:3002/api/conversations-stats"
+        "/api/conversations-stats"
       );
       setStats(response.data.data);
     } catch (error) {
@@ -67,7 +67,7 @@ const Leads = () => {
 
     try {
       const response = await axios.get(
-        `http://159.198.32.23:3002/api/conversations/${phoneNumber}/messages?page=${page}&limit=50`
+        `/api/conversations/${phoneNumber}/messages?page=${page}&limit=50`
       );
       setMessages(response.data.data.messages || []);
     } catch (error) {
@@ -131,7 +131,7 @@ const Leads = () => {
     if (conversation.unreadCount > 0) {
       try {
         await axios.post(
-          `http://159.198.32.23:3002/api/conversations/${conversation.phoneNumber}/read`
+          `/api/conversations/${conversation.phoneNumber}/read`
         );
         // Update local state
         setConversations((prev) =>
