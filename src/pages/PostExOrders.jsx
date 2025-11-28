@@ -1669,10 +1669,14 @@ const PostExOrders = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleConfirmCancel(orderToCancel.trackingNumber)}
+                  onClick={() => {
+                    if (orderToCancel?.trackingNumber) {
+                      handleConfirmCancel(orderToCancel.trackingNumber);
+                    }
+                  }}
                   className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
                 >
-                  Confirm
+                  Confirm Cancel
                 </button>
               </div>
             </div>
