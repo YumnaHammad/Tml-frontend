@@ -585,13 +585,26 @@ const Warehouses = () => {
           (stockItem.quantity || 0) -
           (stockItem.reservedQuantity || 0) -
           (stockItem.deliveredQuantity || 0) -
-          (stockItem.confirmedDeliveredQuantity || 0);
+          (stockItem.confirmedDeliveredQuantity || 0) -
+          (stockItem.postExStatusCounts?.["Unbooked"] || 0) -
+          (stockItem.postExStatusCounts?.["Booked"] || 0) -
+          (stockItem.postExStatusCounts?.["PostEx WareHouse"] || 0) -
+          (stockItem.postExStatusCounts?.["Out For Delivery"] || 0) -
+          (stockItem.postExStatusCounts?.["Delivered"] || 0) -
+          (stockItem.postExStatusCounts?.["Returned"] || 0) -
+          (stockItem.postExStatusCounts?.["Un-Assigned By Me"] || 0) -
+          (stockItem.postExStatusCounts?.["Expired"] || 0) -
+          (stockItem.postExStatusCounts?.["Delivery Under Review"] || 0) -
+          (stockItem.postExStatusCounts?.["Picked By PostEx"] || 0) -
+          (stockItem.postExStatusCounts?.["Out For Return"] || 0) -
+          (stockItem.postExStatusCounts?.["Attempted"] || 0) -
+          (stockItem.postExStatusCounts?.["En-Route to PostEx warehouse"] || 0);
         return {
           "#": index + 1,
           "Product / Variant": displayName,
           SKU: stockItem.displaySKU,
           "Total Stock": stockItem.quantity || 0,
-          Unbooked: stockItem.Unbooked || 0,
+          Unbooked: stockItem.postExStatusCounts?.["Unbooked"] || 0,
           Booked: stockItem.postExStatusCounts?.["Booked"] || 0,
           "PostEx WareHouse":
             stockItem.postExStatusCounts?.["PostEx WareHouse"] || 0,
@@ -1047,7 +1060,8 @@ const Warehouses = () => {
                           {/* PostEx Status Columns - in exact order with colors */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
-                              const count = stockItem.Unbooked || 0;
+                              const count =
+                                stockItem.postExStatusCounts?.["Unbooked"] || 0;
                               const colorClass =
                                 getPostExStatusColor("Unbooked");
                               return count > 0 ? (
@@ -1064,7 +1078,7 @@ const Warehouses = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
                               const count =
-                                stockItem.Booked || 0;
+                                stockItem.postExStatusCounts?.["Booked"] || 0;
                               const colorClass = getPostExStatusColor("Booked");
                               return count > 0 ? (
                                 <span
@@ -1290,7 +1304,19 @@ const Warehouses = () => {
                                   (stockItem.reservedQuantity || 0) -
                                   (stockItem.deliveredQuantity || 0) -
                                   (stockItem.confirmedDeliveredQuantity || 0) -
-                                  (stockItem.Unbooked || 0) - (stockItem.Booked || 0)}
+                                  (stockItem.postExStatusCounts?.["Unbooked"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Booked"] || 0) -
+                                  (stockItem.postExStatusCounts?.["PostEx WareHouse"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Out For Delivery"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Delivered"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Returned"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Un-Assigned By Me"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Expired"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Delivery Under Review"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Picked By PostEx"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Out For Return"] || 0) -
+                                  (stockItem.postExStatusCounts?.["Attempted"] || 0) -
+                                  (stockItem.postExStatusCounts?.["En-Route to PostEx warehouse"] || 0)}
                               </span>
                               <span className="text-xs text-gray-500">
                                 ready
