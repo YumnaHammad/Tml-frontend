@@ -694,7 +694,6 @@ const Warehouses = () => {
           (stockItem.PostExWareHouse || 0) -
           (stockItem.OutForDelivery || 0) -
           (stockItem.Delivered || 0) -
-          (stockItem.Returned || 0) -
           (stockItem.UnAssignedByMe || 0) -
           (stockItem.Expired || 0) -
           (stockItem.DeliveryUnderReview || 0) -
@@ -1413,7 +1412,6 @@ const Warehouses = () => {
                                   (stockItem.PostExWareHouse || 0) -
                                   (stockItem.OutForDelivery || 0) -
                                   (stockItem.Delivered || 0) -
-                                  (stockItem.Returned || 0) -
                                   (stockItem.UnAssignedByMe || 0) -
                                   (stockItem.Expired || 0) -
                                   (stockItem.DeliveryUnderReview || 0) -
