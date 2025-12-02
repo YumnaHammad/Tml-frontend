@@ -59,6 +59,31 @@ const Warehouses = () => {
     return String(value).toLowerCase().trim().replace(/\s+/g, " ");
   };
 
+  // Map backend field names to display names
+  const statusFieldMap = {
+    Unbooked: "Unbooked",
+    Booked: "Booked",
+    PostExWareHouse: "PostEx WareHouse",
+    OutForDelivery: "Out For Delivery",
+    Delivered: "Delivered",
+    Returned: "Returned",
+    UnAssignedByMe: "Un-Assigned By Me",
+    Expired: "Expired",
+    DeliveryUnderReview: "Delivery Under Review",
+    PickedByPostEx: "Picked By PostEx",
+    OutForReturn: "Out For Return",
+    Attempted: "Attempted",
+    EnRouteToPostExwarehouse: "En-Route to PostEx warehouse",
+  };
+
+  // Get backend field name from display name
+  const getBackendFieldName = (displayName) => {
+    const entry = Object.entries(statusFieldMap).find(
+      ([_, display]) => display === displayName
+    );
+    return entry ? entry[0] : displayName;
+  };
+
   // Map backend camelCase field names to display names
   const backendToDisplayMap = {
     Unbooked: "Unbooked",
@@ -591,20 +616,20 @@ const Warehouses = () => {
               Attempted: 0,
               "En-Route to PostEx warehouse": 0,
             },
-            // Initialize direct properties for all statuses (same as Unbooked and Booked)
+            // Initialize direct properties using backend field names
             Unbooked: 0,
             Booked: 0,
-            "PostEx WareHouse": 0,
-            "Out For Delivery": 0,
+            PostExWareHouse: 0,
+            OutForDelivery: 0,
             Delivered: 0,
             Returned: 0,
-            "Un-Assigned By Me": 0,
+            UnAssignedByMe: 0,
             Expired: 0,
-            "Delivery Under Review": 0,
-            "Picked By PostEx": 0,
-            "Out For Return": 0,
+            DeliveryUnderReview: 0,
+            PickedByPostEx: 0,
+            OutForReturn: 0,
             Attempted: 0,
-            "En-Route to PostEx warehouse": 0,
+            EnRouteToPostExwarehouse: 0,
           };
         }
 
@@ -617,36 +642,40 @@ const Warehouses = () => {
         mergedStock[key].expectedReturns += stockItem.expectedReturns || 0;
         mergedStock[key].returnedQuantity += stockItem.returnedQuantity || 0;
 
-        // Count PostEx status
-        if (
-          stockItem.postExStatus &&
-          mergedStock[key].postExStatusCounts.hasOwnProperty(
-            stockItem.postExStatus
-          )
-        ) {
-          mergedStock[key].postExStatusCounts[stockItem.postExStatus] +=
-            stockItem.quantity || 0;
-          // Also set as direct property (same as Unbooked and Booked)
-          mergedStock[key][stockItem.postExStatus] =
-            (mergedStock[key][stockItem.postExStatus] || 0) +
-            (stockItem.quantity || 0);
-        }
+        // Handle all status fields from backend (using backend field names)
+        const backendStatusFields = [
+          "Unbooked",
+          "Booked",
+          "PostExWareHouse",
+          "OutForDelivery",
+          "Delivered",
+          "Returned",
+          "UnAssignedByMe",
+          "Expired",
+          "DeliveryUnderReview",
+          "PickedByPostEx",
+          "OutForReturn",
+          "Attempted",
+          "EnRouteToPostExwarehouse",
+        ];
 
-        // Also handle direct properties from original stockItem (for Unbooked and Booked)
-        if (stockItem.Unbooked) {
-          mergedStock[key].Unbooked =
-            (mergedStock[key].Unbooked || 0) + (stockItem.Unbooked || 0);
-          mergedStock[key].postExStatusCounts.Unbooked =
-            (mergedStock[key].postExStatusCounts.Unbooked || 0) +
-            (stockItem.Unbooked || 0);
-        }
-        if (stockItem.Booked) {
-          mergedStock[key].Booked =
-            (mergedStock[key].Booked || 0) + (stockItem.Booked || 0);
-          mergedStock[key].postExStatusCounts.Booked =
-            (mergedStock[key].postExStatusCounts.Booked || 0) +
-            (stockItem.Booked || 0);
-        }
+        backendStatusFields.forEach((backendField) => {
+          const displayName = statusFieldMap[backendField];
+          const fieldValue = stockItem[backendField] || 0;
+
+          if (fieldValue > 0) {
+            // Add to direct property (backend field name)
+            mergedStock[key][backendField] =
+              (mergedStock[key][backendField] || 0) + fieldValue;
+
+            // Also add to postExStatusCounts (display name)
+            if (displayName) {
+              mergedStock[key].postExStatusCounts[displayName] =
+                (mergedStock[key].postExStatusCounts[displayName] || 0) +
+                fieldValue;
+            }
+          }
+        });
       });
 
       // Prepare object rows for export
@@ -662,17 +691,17 @@ const Warehouses = () => {
           (stockItem.confirmedDeliveredQuantity || 0) -
           (stockItem.Unbooked || 0) -
           (stockItem.Booked || 0) -
-          (stockItem["PostEx WareHouse"] || 0) -
-          (stockItem["Out For Delivery"] || 0) -
+          (stockItem.PostExWareHouse || 0) -
+          (stockItem.OutForDelivery || 0) -
           (stockItem.Delivered || 0) -
           (stockItem.Returned || 0) -
-          (stockItem["Un-Assigned By Me"] || 0) -
+          (stockItem.UnAssignedByMe || 0) -
           (stockItem.Expired || 0) -
-          (stockItem["Delivery Under Review"] || 0) -
-          (stockItem["Picked By PostEx"] || 0) -
-          (stockItem["Out For Return"] || 0) -
+          (stockItem.DeliveryUnderReview || 0) -
+          (stockItem.PickedByPostEx || 0) -
+          (stockItem.OutForReturn || 0) -
           (stockItem.Attempted || 0) -
-          (stockItem["En-Route to PostEx warehouse"] || 0);
+          (stockItem.EnRouteToPostExwarehouse || 0);
         return {
           "#": index + 1,
           "Product / Variant": displayName,
@@ -680,17 +709,17 @@ const Warehouses = () => {
           "Total Stock": stockItem.quantity || 0,
           Unbooked: stockItem.Unbooked || 0,
           Booked: stockItem.Booked || 0,
-          "PostEx WareHouse": stockItem["PostEx WareHouse"] || 0,
-          "Out For Delivery": stockItem["Out For Delivery"] || 0,
+          "PostEx WareHouse": stockItem.PostExWareHouse || 0,
+          "Out For Delivery": stockItem.OutForDelivery || 0,
           Delivered: stockItem.Delivered || 0,
           Returned: stockItem.Returned || 0,
-          "Un-Assigned By Me": stockItem["Un-Assigned By Me"] || 0,
+          "Un-Assigned By Me": stockItem.UnAssignedByMe || 0,
           Expired: stockItem.Expired || 0,
-          "Delivery Under Review": stockItem["Delivery Under Review"] || 0,
-          "Picked By PostEx": stockItem["Picked By PostEx"] || 0,
-          "Out For Return": stockItem["Out For Return"] || 0,
+          "Delivery Under Review": stockItem.DeliveryUnderReview || 0,
+          "Picked By PostEx": stockItem.PickedByPostEx || 0,
+          "Out For Return": stockItem.OutForReturn || 0,
           Attempted: stockItem.Attempted || 0,
-          "En-Route to PostEx warehouse": stockItem["En-Route to PostEx warehouse"] || 0,
+          "En-Route to PostEx warehouse": stockItem.EnRouteToPostExwarehouse || 0,
           "Available Now": availableNow,
         };
       });
@@ -1015,7 +1044,7 @@ const Warehouses = () => {
                             stockItem.productId?.sku ||
                             "N/A",
                           postExOrderRef: stockItem.postExOrderRef || null,
-                          // Initialize PostEx status counts
+                          // Initialize PostEx status counts (using display names)
                           postExStatusCounts: {
                             Unbooked: 0,
                             Booked: 0,
@@ -1031,20 +1060,20 @@ const Warehouses = () => {
                             Attempted: 0,
                             "En-Route to PostEx warehouse": 0,
                           },
-                          // Initialize direct properties for all statuses (same as Unbooked and Booked)
+                          // Initialize direct properties using backend field names
                           Unbooked: 0,
                           Booked: 0,
-                          "PostEx WareHouse": 0,
-                          "Out For Delivery": 0,
+                          PostExWareHouse: 0,
+                          OutForDelivery: 0,
                           Delivered: 0,
                           Returned: 0,
-                          "Un-Assigned By Me": 0,
+                          UnAssignedByMe: 0,
                           Expired: 0,
-                          "Delivery Under Review": 0,
-                          "Picked By PostEx": 0,
-                          "Out For Return": 0,
+                          DeliveryUnderReview: 0,
+                          PickedByPostEx: 0,
+                          OutForReturn: 0,
                           Attempted: 0,
-                          "En-Route to PostEx warehouse": 0,
+                          EnRouteToPostExwarehouse: 0,
                         };
                       }
 
@@ -1061,39 +1090,40 @@ const Warehouses = () => {
                       mergedStock[key].returnedQuantity +=
                         stockItem.returnedQuantity || 0;
 
-                      // Count PostEx status - count the quantity for this status
-                      if (
-                        stockItem.postExStatus &&
-                        mergedStock[key].postExStatusCounts.hasOwnProperty(
-                          stockItem.postExStatus
-                        )
-                      ) {
-                        mergedStock[key].postExStatusCounts[
-                          stockItem.postExStatus
-                        ] += stockItem.quantity || 0;
-                        // Also set as direct property (same as Unbooked and Booked)
-                        mergedStock[key][stockItem.postExStatus] =
-                          (mergedStock[key][stockItem.postExStatus] || 0) +
-                          (stockItem.quantity || 0);
-                      }
+                      // Handle all status fields from backend (using backend field names)
+                      const backendStatusFields = [
+                        "Unbooked",
+                        "Booked",
+                        "PostExWareHouse",
+                        "OutForDelivery",
+                        "Delivered",
+                        "Returned",
+                        "UnAssignedByMe",
+                        "Expired",
+                        "DeliveryUnderReview",
+                        "PickedByPostEx",
+                        "OutForReturn",
+                        "Attempted",
+                        "EnRouteToPostExwarehouse",
+                      ];
 
-                      // Also handle direct properties from original stockItem (for Unbooked and Booked)
-                      if (stockItem.Unbooked) {
-                        mergedStock[key].Unbooked =
-                          (mergedStock[key].Unbooked || 0) +
-                          (stockItem.Unbooked || 0);
-                        mergedStock[key].postExStatusCounts.Unbooked =
-                          (mergedStock[key].postExStatusCounts.Unbooked || 0) +
-                          (stockItem.Unbooked || 0);
-                      }
-                      if (stockItem.Booked) {
-                        mergedStock[key].Booked =
-                          (mergedStock[key].Booked || 0) +
-                          (stockItem.Booked || 0);
-                        mergedStock[key].postExStatusCounts.Booked =
-                          (mergedStock[key].postExStatusCounts.Booked || 0) +
-                          (stockItem.Booked || 0);
-                      }
+                      backendStatusFields.forEach((backendField) => {
+                        const displayName = statusFieldMap[backendField];
+                        const fieldValue = stockItem[backendField] || 0;
+
+                        if (fieldValue > 0) {
+                          // Add to direct property (backend field name)
+                          mergedStock[key][backendField] =
+                            (mergedStock[key][backendField] || 0) + fieldValue;
+
+                          // Also add to postExStatusCounts (display name)
+                          if (displayName) {
+                            mergedStock[key].postExStatusCounts[displayName] =
+                              (mergedStock[key].postExStatusCounts[displayName] || 0) +
+                              fieldValue;
+                          }
+                        }
+                      });
                     });
 
                     const filteredRows = Object.values(mergedStock).filter(
@@ -1194,7 +1224,7 @@ const Warehouses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
-                              const count = stockItem["PostEx WareHouse"] || 0;
+                              const count = stockItem.PostExWareHouse || 0;
                               const colorClass =
                                 getPostExStatusColor("PostEx WareHouse");
                               return count > 0 ? (
@@ -1210,7 +1240,7 @@ const Warehouses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
-                              const count = stockItem["Out For Delivery"] || 0;
+                              const count = stockItem.OutForDelivery || 0;
                               const colorClass =
                                 getPostExStatusColor("Out For Delivery");
                               return count > 0 ? (
@@ -1258,7 +1288,7 @@ const Warehouses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
-                              const count = stockItem["Un-Assigned By Me"] || 0;
+                              const count = stockItem.UnAssignedByMe || 0;
                               const colorClass =
                                 getPostExStatusColor("Un-Assigned By Me");
                               return count > 0 ? (
@@ -1290,7 +1320,7 @@ const Warehouses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
-                              const count = stockItem["Delivery Under Review"] || 0;
+                              const count = stockItem.DeliveryUnderReview || 0;
                               const colorClass = getPostExStatusColor(
                                 "Delivery Under Review"
                               );
@@ -1307,7 +1337,7 @@ const Warehouses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
-                              const count = stockItem["Picked By PostEx"] || 0;
+                              const count = stockItem.PickedByPostEx || 0;
                               const colorClass =
                                 getPostExStatusColor("Picked By PostEx");
                               return count > 0 ? (
@@ -1323,7 +1353,7 @@ const Warehouses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
-                              const count = stockItem["Out For Return"] || 0;
+                              const count = stockItem.OutForReturn || 0;
                               const colorClass =
                                 getPostExStatusColor("Out For Return");
                               return count > 0 ? (
@@ -1355,7 +1385,7 @@ const Warehouses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(() => {
-                              const count = stockItem["En-Route to PostEx warehouse"] || 0;
+                              const count = stockItem.EnRouteToPostExwarehouse || 0;
                               const colorClass = getPostExStatusColor(
                                 "En-Route to PostEx warehouse"
                               );
@@ -1380,17 +1410,17 @@ const Warehouses = () => {
                                   (stockItem.confirmedDeliveredQuantity || 0) -
                                   (stockItem.Unbooked || 0) -
                                   (stockItem.Booked || 0) -
-                                  (stockItem["PostEx WareHouse"] || 0) -
-                                  (stockItem["Out For Delivery"] || 0) -
+                                  (stockItem.PostExWareHouse || 0) -
+                                  (stockItem.OutForDelivery || 0) -
                                   (stockItem.Delivered || 0) -
                                   (stockItem.Returned || 0) -
-                                  (stockItem["Un-Assigned By Me"] || 0) -
+                                  (stockItem.UnAssignedByMe || 0) -
                                   (stockItem.Expired || 0) -
-                                  (stockItem["Delivery Under Review"] || 0) -
-                                  (stockItem["Picked By PostEx"] || 0) -
-                                  (stockItem["Out For Return"] || 0) -
+                                  (stockItem.DeliveryUnderReview || 0) -
+                                  (stockItem.PickedByPostEx || 0) -
+                                  (stockItem.OutForReturn || 0) -
                                   (stockItem.Attempted || 0) -
-                                  (stockItem["En-Route to PostEx warehouse"] || 0)}
+                                  (stockItem.EnRouteToPostExwarehouse || 0)}
                               </span>
                               <span className="text-xs text-gray-500">
                                 ready
