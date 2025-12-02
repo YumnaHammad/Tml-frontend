@@ -59,6 +59,46 @@ const Warehouses = () => {
     return String(value).toLowerCase().trim().replace(/\s+/g, " ");
   };
 
+  // Map backend camelCase field names to display names
+  const backendToDisplayMap = {
+    Unbooked: "Unbooked",
+    Booked: "Booked",
+    PostExWareHouse: "PostEx WareHouse",
+    OutForDelivery: "Out For Delivery",
+    Delivered: "Delivered",
+    Returned: "Returned",
+    UnAssignedByMe: "Un-Assigned By Me",
+    Expired: "Expired",
+    DeliveryUnderReview: "Delivery Under Review",
+    PickedByPostEx: "Picked By PostEx",
+    OutForReturn: "Out For Return",
+    Attempted: "Attempted",
+    EnRouteToPostExwarehouse: "En-Route to PostEx warehouse",
+  };
+
+  // Map display names to backend field names
+  const displayToBackendMap = {
+    "Unbooked": "Unbooked",
+    "Booked": "Booked",
+    "PostEx WareHouse": "PostExWareHouse",
+    "Out For Delivery": "OutForDelivery",
+    "Delivered": "Delivered",
+    "Returned": "Returned",
+    "Un-Assigned By Me": "UnAssignedByMe",
+    "Expired": "Expired",
+    "Delivery Under Review": "DeliveryUnderReview",
+    "Picked By PostEx": "PickedByPostEx",
+    "Out For Return": "OutForReturn",
+    "Attempted": "Attempted",
+    "En-Route to PostEx warehouse": "EnRouteToPostExwarehouse",
+  };
+
+  // Get backend field value from stockItem
+  const getBackendStatusValue = (stockItem, displayName) => {
+    const backendField = displayToBackendMap[displayName] || displayName;
+    return stockItem[backendField] || 0;
+  };
+
   // Get PostEx status color (matching PostExOrders module)
   const getPostExStatusColor = (status) => {
     if (!status) return "bg-gray-100 text-gray-800";
