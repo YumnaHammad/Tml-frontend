@@ -19,10 +19,15 @@ import {
   Volume2,
   VolumeX,
   X,
+  List,
+  Grid3X3,
+  RefreshCw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
 import axios from "axios";
+import ExportButton from "../components/ExportButton";
+import { exportToExcel } from "../utils/exportUtils";
 
 const Leads = () => {
   const [conversations, setConversations] = useState([]);
@@ -34,18 +39,29 @@ const Leads = () => {
   const [stats, setStats] = useState({});
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("list"); // 'grid' or 'list'
+  const [refreshing, setRefreshing] = useState(false);
+  const [timeFilter, setTimeFilter] = useState("all"); // 'all', 'day', 'week', 'month', 'year', 'custom'
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const messagesEndRef = useRef(null);
 
   // Fetch conversations
   const fetchConversations = async () => {
     try {
+      setRefreshing(true);
+      // Fetch all conversations without limit
       const response = await axios.get(
-        "/api/conversations"
+        "/api/conversations?limit=1000"
       );
-      setConversations(response.data.data.conversations || []);
+      const allConversations = response.data.data?.conversations || response.data.data || [];
+      console.log("Total conversations fetched:", allConversations.length);
+      setConversations(allConversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
       toast.error("Failed to load conversations");
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -107,7 +123,7 @@ const Leads = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Filter conversations based on search and filter
+  // Filter conversations based on search, filter, and date/time
   const filteredConversations = conversations.filter((conv) => {
     const matchesSearch =
       conv.phoneNumber.includes(searchTerm) ||
@@ -118,8 +134,109 @@ const Leads = () => {
       (filter === "unread" && conv.unreadCount > 0) ||
       (filter === "active" && conv.isActive);
 
-    return matchesSearch && matchesFilter;
+    // Date/Time filtering
+    let matchesDate = true;
+    if (timeFilter !== "all" && conv.lastMessageTimestamp) {
+      const messageDate = new Date(conv.lastMessageTimestamp);
+      const now = new Date();
+      let startDate, endDate;
+
+      switch (timeFilter) {
+        case "day":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case "week":
+          const dayOfWeek = now.getDay();
+          const diff = now.getDate() - dayOfWeek;
+          startDate = new Date(now.setDate(diff));
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date();
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case "year":
+          startDate = new Date(now.getFullYear(), 0, 1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), 11, 31);
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case "custom":
+          if (customStartDate && customEndDate) {
+            startDate = new Date(customStartDate);
+            startDate.setHours(0, 0, 0, 0);
+            endDate = new Date(customEndDate);
+            endDate.setHours(23, 59, 59, 999);
+          } else {
+            matchesDate = true; // If dates not set, show all
+            break;
+          }
+          break;
+        default:
+          matchesDate = true;
+      }
+
+      if (timeFilter !== "all" && timeFilter !== "custom") {
+        matchesDate = messageDate >= startDate && messageDate <= endDate;
+      } else if (timeFilter === "custom" && customStartDate && customEndDate) {
+        matchesDate = messageDate >= startDate && messageDate <= endDate;
+      }
+    }
+
+    return matchesSearch && matchesFilter && matchesDate;
   });
+
+  // Debug: Log filtered conversations count
+  useEffect(() => {
+    if (conversations.length > 0) {
+      console.log("Total conversations:", conversations.length);
+      console.log("Filtered conversations:", filteredConversations.length);
+      console.log("Filter:", filter, "TimeFilter:", timeFilter, "Search:", searchTerm);
+    }
+  }, [conversations.length, filteredConversations.length, filter, timeFilter, searchTerm]);
+
+  // Handle export to Excel
+  const handleExportConversations = async (format = "excel") => {
+    try {
+      // Prepare data for export
+      const exportData = filteredConversations.map((conv, index) => ({
+        "S.No": index + 1,
+        "Phone Number": conv.phoneNumber,
+        "Last Activity": conv.lastMessageTimestamp
+          ? new Date(conv.lastMessageTimestamp).toLocaleString()
+          : "N/A",
+        "Total Messages": conv.messageCount || 0,
+        "Incoming": conv.incomingCount || 0,
+        "Outgoing": conv.outgoingCount || 0,
+        "Status": conv.isActive ? "Active" : "Inactive",
+        "Unread Count": conv.unreadCount || 0,
+      }));
+
+      const result = await exportToExcel(
+        exportData,
+        `whatsapp-conversations-${timeFilter === "all" ? "all" : timeFilter}`,
+        "WhatsApp Conversations"
+      );
+
+      // Return result to ExportButton - it will handle showing success/error messages
+      // Make sure to return success: true to prevent error message
+      if (result && result.success) {
+        return { success: true };
+      } else {
+        return { success: false, error: result?.error || "Export failed" };
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      return { success: false, error: error?.message || "Failed to export conversations" };
+    }
+  };
 
   // Select conversation and open modal
   const handleSelectConversation = async (conversation) => {
@@ -240,13 +357,70 @@ const Leads = () => {
                   WhatsApp Conversations
                 </h1>
                 <p className="text-gray-600 text-sm">
-                  {stats.totalConversations || 0} conversations •{" "}
-                  {stats.totalMessages || 0} messages
+                  {filteredConversations.length} {filteredConversations.length === conversations.length ? 'conversations' : `of ${conversations.length} conversations`} •{" "}
+                  {filteredConversations.reduce((total, conv) => total + (conv.messageCount || 0), 0)} {filteredConversations.length === conversations.length ? 'messages' : `of ${stats.totalMessages || 0} messages`}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* View Mode Toggle */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
+                    viewMode === "list"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  title="List View"
+                >
+                  <List className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline text-sm font-medium">
+                    List
+                  </span>
+                </button>
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
+                    viewMode === "grid"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  title="Grid View"
+                >
+                  <Grid3X3 className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline text-sm font-medium">
+                    Grid
+                  </span>
+                </button>
+              </div>
+
+              {/* Refresh Button */}
+              <button
+                onClick={fetchConversations}
+                disabled={refreshing}
+                className="flex items-center px-3 py-1.5 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm whitespace-nowrap disabled:opacity-50"
+                title="Refresh conversations"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 mr-1 ${
+                    refreshing ? "animate-spin" : ""
+                  }`}
+                />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+
+              {/* Export Button */}
+              <ExportButton
+                data={filteredConversations}
+                filename="whatsapp-conversations"
+                title="WhatsApp Conversations"
+                exportFunction={handleExportConversations}
+                variant="default"
+                buttonText="Export"
+              />
+
               {/* Auto-refresh toggle */}
               <button
                 onClick={() => setAutoRefresh(!autoRefresh)}
@@ -255,6 +429,7 @@ const Leads = () => {
                     ? "bg-blue-100 text-blue-600"
                     : "bg-gray-100 text-gray-600"
                 }`}
+                title={autoRefresh ? "Disable auto-refresh" : "Enable auto-refresh"}
               >
                 {autoRefresh ? (
                   <Volume2 className="w-5 h-5" />
@@ -267,11 +442,14 @@ const Leads = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <div className="flex items-center space-x-4 text-sm">
                   <span className="text-blue-700 font-medium">
-                    {stats.totalUnread || 0} unread
+                    {filteredConversations.filter((c) => {
+                      const unread = Number(c.unreadCount) || 0;
+                      return unread > 0;
+                    }).length} unread
                   </span>
                   <span className="text-gray-500">•</span>
                   <span className="text-green-600 font-medium">
-                    {stats.activeConversations || 0} active
+                    {filteredConversations.filter(c => c.isActive === true).length} active
                   </span>
                 </div>
               </div>
@@ -300,17 +478,23 @@ const Leads = () => {
 
               <div className="flex space-x-2">
                 {[
-                  { key: "all", label: "All", count: conversations.length },
+                  { 
+                    key: "all", 
+                    label: "All", 
+                    count: filteredConversations.length 
+                  },
                   {
                     key: "unread",
                     label: "Unread",
-                    count: conversations.filter((c) => c.unreadCount > 0)
-                      .length,
+                    count: filteredConversations.filter((c) => {
+                      const unread = Number(c.unreadCount) || 0;
+                      return unread > 0;
+                    }).length,
                   },
                   {
                     key: "active",
                     label: "Active",
-                    count: conversations.filter((c) => c.isActive).length,
+                    count: filteredConversations.filter((c) => c.isActive === true).length,
                   },
                 ].map(({ key, label, count }) => (
                   <button
@@ -327,96 +511,291 @@ const Leads = () => {
                 ))}
               </div>
             </div>
+
+            {/* Date/Time Filter Section */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-4 border-t border-gray-200 mt-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                <label className="text-sm font-medium text-gray-700">
+                  Filter by Date/Time:
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={timeFilter}
+                  onChange={(e) => {
+                    setTimeFilter(e.target.value);
+                    if (e.target.value !== "custom") {
+                      setCustomStartDate("");
+                      setCustomEndDate("");
+                    }
+                  }}
+                  className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="all">All Time</option>
+                  <option value="day">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="year">This Year</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+
+                {/* Custom Date Range */}
+                {timeFilter === "custom" && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600 whitespace-nowrap">From:</label>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600 whitespace-nowrap">To:</label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Conversation Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          <AnimatePresence>
-            {filteredConversations.map((conversation, index) => (
-              <motion.div
-                key={conversation.phoneNumber}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                onClick={() => handleSelectConversation(conversation)}
-                className="card p-6 cursor-pointer hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-blue-300"
-              >
-                <div className="flex items-start space-x-4">
-                  {/* Avatar */}
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
-                    <User className="w-6 h-6 text-white" />
-                  </div>
+        {/* Conversations - Grid or List View */}
+        {viewMode === "grid" ? (
+          /* Grid View */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <AnimatePresence>
+              {filteredConversations.map((conversation, index) => (
+                <motion.div
+                  key={conversation.phoneNumber}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => handleSelectConversation(conversation)}
+                  className="card p-6 cursor-pointer hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-blue-300"
+                >
+                  <div className="flex items-start space-x-4">
+                    {/* Avatar */}
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-gray-900 text-lg truncate">
-                        {conversation.phoneNumber}
-                      </h3>
-                      {conversation.unreadCount > 0 && (
-                        <span className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
-                          {conversation.unreadCount}
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-gray-900 text-lg truncate">
+                          {conversation.phoneNumber}
+                        </h3>
+                        {conversation.unreadCount > 0 && (
+                          <span className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
+                            {conversation.unreadCount}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                        {conversation.lastMessage || "No messages yet"}
+                      </p>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              conversation.lastMessageType === "text"
+                                ? "bg-gray-100 text-gray-600"
+                                : "bg-blue-100 text-blue-600"
+                            }`}
+                          >
+                            {conversation.lastMessageType || "text"}
+                          </span>
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              conversation.isActive
+                                ? "bg-green-500"
+                                : "bg-gray-300"
+                            }`}
+                          />
+                        </div>
+
+                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                          {formatDate(conversation.lastMessageTimestamp)}
                         </span>
-                      )}
-                    </div>
-
-                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                      {conversation.lastMessage || "No messages yet"}
-                    </p>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full ${
-                            conversation.lastMessageType === "text"
-                              ? "bg-gray-100 text-gray-600"
-                              : "bg-blue-100 text-blue-600"
-                          }`}
-                        >
-                          {conversation.lastMessageType || "text"}
-                        </span>
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            conversation.isActive
-                              ? "bg-green-500"
-                              : "bg-gray-300"
-                          }`}
-                        />
                       </div>
 
-                      <span className="text-xs text-gray-500 whitespace-nowrap">
-                        {formatDate(conversation.lastMessageTimestamp)}
-                      </span>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center space-x-4 mt-3 pt-3 border-t border-gray-100">
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium text-gray-700">
-                          {conversation.messageCount || 0}
-                        </span>{" "}
-                        messages
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium text-green-600">
-                          {conversation.incomingCount || 0}
-                        </span>{" "}
-                        in
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium text-blue-600">
-                          {conversation.outgoingCount || 0}
-                        </span>{" "}
-                        out
+                      {/* Stats */}
+                      <div className="flex items-center space-x-4 mt-3 pt-3 border-t border-gray-100">
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium text-gray-700">
+                            {conversation.messageCount || 0}
+                          </span>{" "}
+                          messages
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium text-green-600">
+                            {conversation.incomingCount || 0}
+                          </span>{" "}
+                          in
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium text-blue-600">
+                            {conversation.outgoingCount || 0}
+                          </span>{" "}
+                          out
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        ) : (
+          /* List/Table View */
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                      S.No
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Phone Number
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Last Message
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Messages
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Last Activity
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  <AnimatePresence>
+                    {filteredConversations.map((conversation, index) => (
+                      <motion.tr
+                        key={conversation.phoneNumber}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ delay: index * 0.02 }}
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => handleSelectConversation(conversation)}
+                      >
+                        <td className="px-2 py-4 whitespace-nowrap text-center w-10">
+                          <div className="text-sm font-medium text-gray-900">
+                            {index + 1}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 mr-3">
+                              <User className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 flex items-center">
+                                {conversation.phoneNumber}
+                                {conversation.unreadCount > 0 && (
+                                  <span className="ml-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                    {conversation.unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 max-w-xs truncate">
+                            {conversation.lastMessage || "No messages yet"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              conversation.lastMessageType === "text"
+                                ? "bg-gray-100 text-gray-600"
+                                : "bg-blue-100 text-blue-600"
+                            }`}
+                          >
+                            {conversation.lastMessageType || "text"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            <div>
+                              <span className="font-medium">
+                                {conversation.messageCount || 0}
+                              </span>{" "}
+                              total
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              <span className="text-green-600">
+                                {conversation.incomingCount || 0}
+                              </span>{" "}
+                              in •{" "}
+                              <span className="text-blue-600">
+                                {conversation.outgoingCount || 0}
+                              </span>{" "}
+                              out
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div
+                              className={`w-2 h-2 rounded-full mr-2 ${
+                                conversation.isActive
+                                  ? "bg-green-500"
+                                  : "bg-gray-300"
+                              }`}
+                            />
+                            <span className="text-sm text-gray-900">
+                              {conversation.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(conversation.lastMessageTimestamp)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectConversation(conversation);
+                            }}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-medium text-sm shadow-sm hover:shadow-md"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Empty State */}
         {filteredConversations.length === 0 && (

@@ -125,13 +125,16 @@ const PostExOrderPage = () => {
 
     async createOrder(orderData) {
       try {
+        // Remove dashes from phone number before submitting
+        const cleanedPhone = (orderData.customerContact || "").replace(/-/g, "");
+
         // Prepare payload according to PostEx API requirements
         const payload = {
           orderRefNumber: orderData.orderReferenceNumber,
           invoicePayment: orderData.orderAmount.toString(),
           orderDetail: orderData.orderDetail || "",
           customerName: orderData.customerName,
-          customerPhone: orderData.customerContact,
+          customerPhone: cleanedPhone, // Phone number without dashes
           deliveryAddress: orderData.deliveryAddress,
           transactionNotes: orderData.notes || "",
           cityName: orderData.deliveryCity,
@@ -239,16 +242,24 @@ const PostExOrderPage = () => {
 
           console.log("Fetched sale data:", sale);
 
+          // Get product name from first item
+          const productName = sale.items?.[0]?.productId?.name || 
+                             sale.items?.[0]?.productName || 
+                             sale.orderNumber || "";
+
+          // Remove dashes from phone number
+          const phoneNumber = (sale.customerInfo?.phone || "").replace(/-/g, "");
+
           // Populate form with fetched sale data
           setPostExFormData((prev) => ({
             ...prev,
-            orderReferenceNumber: sale.orderNumber || "",
+            orderReferenceNumber: productName, // Use product name instead of order number
             orderAmount: sale.totalAmount?.toString() || "",
             orderDate: sale.orderDate
               ? new Date(sale.orderDate).toISOString().split("T")[0]
               : new Date().toISOString().split("T")[0],
             customerName: sale.customerName || sale.customerInfo?.name || "",
-            customerContact: sale.customerInfo?.phone || "",
+            customerContact: phoneNumber, // Phone number without dashes
             deliveryCity: sale.deliveryAddress?.city || "",
             deliveryAddress: sale.deliveryAddress?.street || "",
             items: sale.items?.length?.toString() || "1",
@@ -272,15 +283,24 @@ const PostExOrderPage = () => {
     if (location.state?.sale) {
       const sale = location.state.sale;
       console.log("Received sale data from location state:", sale);
+      
+      // Get product name from first item
+      const productName = sale.items?.[0]?.productId?.name || 
+                         sale.items?.[0]?.productName || 
+                         sale.orderNumber || "";
+
+      // Remove dashes from phone number
+      const phoneNumber = (sale.customerInfo?.phone || "").replace(/-/g, "");
+
       setPostExFormData((prev) => ({
         ...prev,
-        orderReferenceNumber: sale.orderNumber || "",
+        orderReferenceNumber: productName, // Use product name instead of order number
         orderAmount: sale.totalAmount?.toString() || "",
         orderDate: sale.orderDate
           ? new Date(sale.orderDate).toISOString().split("T")[0]
           : new Date().toISOString().split("T")[0],
         customerName: sale.customerName || sale.customerInfo?.name || "",
-        customerContact: sale.customerInfo?.phone || "",
+        customerContact: phoneNumber, // Phone number without dashes
         deliveryCity: sale.deliveryAddress?.city || "",
         deliveryAddress: sale.deliveryAddress?.street || "",
         items: sale.items?.length?.toString() || "1",
@@ -294,9 +314,16 @@ const PostExOrderPage = () => {
 
   const handlePostExFormChange = (e) => {
     const { name, value } = e.target;
+    
+    // Remove dashes from phone number when user types
+    let processedValue = value;
+    if (name === "customerContact") {
+      processedValue = value.replace(/-/g, "");
+    }
+    
     setPostExFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: processedValue,
     }));
   };
 
@@ -685,11 +712,12 @@ const PostExOrderPage = () => {
                 </label>
                 <textarea
                   name="notes"
-                  value={postExFormData.notes}
+                  value="Must Call before Delivery"
+                  disabled
                   onChange={handlePostExFormChange}
                   rows={4}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Additional notes"
+                  
                 />
               </div>
             </div>

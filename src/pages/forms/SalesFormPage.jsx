@@ -30,7 +30,6 @@ const SalesFormPage = ({ onSuccess }) => {
   const [formData, setFormData] = useState({
     customerInfo: {
       name: '',
-      cnNumber: '',
       phone: '',
       address: {
         street: '',
@@ -76,7 +75,6 @@ const SalesFormPage = ({ onSuccess }) => {
       setFormData({
         customerInfo: {
           name: sale.customerInfo?.name || sale.customerName || '',
-          cnNumber: sale.customerInfo?.cnNumber || sale.customerCnNumber || '',
           phone: sale.customerInfo?.phone || sale.customerPhone || '',
           address: sale.customerInfo?.address || {}
         },
@@ -536,10 +534,6 @@ const SalesFormPage = ({ onSuccess }) => {
     if (!formData.customerInfo.name) {
       errors['customerInfo.name'] = 'Customer name is required';
     }
-    // CN number is optional, but if provided, must be exactly 14 alphanumeric characters
-    if (formData.customerInfo.cnNumber && !/^[A-Za-z0-9]{14}$/.test(formData.customerInfo.cnNumber)) {
-      errors['customerInfo.cnNumber'] = 'CN number must be exactly 14 alphanumeric characters';
-    }
     if (!formData.customerInfo.phone) {
       errors['customerInfo.phone'] = 'Customer phone is required';
     } else if (!/^0\d{3}-\d{7}$/.test(formData.customerInfo.phone)) {
@@ -629,7 +623,6 @@ const SalesFormPage = ({ onSuccess }) => {
         ...formData,
         items: itemsWithStockStatus,
         customerName: formData.customerInfo.name,
-        customerCnNumber: formData.customerInfo.cnNumber,
         customerPhone: formData.customerInfo.phone,
         agentName: formData.agentName || '',
         timestamp: currentTimestamp,
@@ -752,7 +745,8 @@ const SalesFormPage = ({ onSuccess }) => {
           <div className="card p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
+              {/* Row 1: Customer Name and Agent Name */}
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Customer Name *
                 </label>
@@ -776,27 +770,37 @@ const SalesFormPage = ({ onSuccess }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  CN Number
+                  Agent Name
                 </label>
                 <input
                   type="text"
-                  name="customerInfo.cnNumber"
-                  value={formData.customerInfo.cnNumber}
-                  onChange={(e) => {
-                    // Only allow alphanumeric characters and limit to 14 characters
-                    const value = e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 14);
-                    handleChange({ target: { name: 'customerInfo.cnNumber', value } });
-                  }}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                    validationErrors['customerInfo.cnNumber'] ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="26393050000620"
-                  maxLength={14}
+                  name="agentName"
+                  value={formData.agentName}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="Enter agent name"
                 />
-                {validationErrors['customerInfo.cnNumber'] && (
+              </div>
+
+              {/* Row 2: City and Phone Number */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  City *
+                </label>
+                <input
+                  type="text"
+                  name="customerInfo.address.city"
+                  value={formData.customerInfo.address.city}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    validationErrors['customerInfo.address.city'] ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter customer city"
+                />
+                {validationErrors['customerInfo.address.city'] && (
                   <p className="mt-1 text-sm text-red-600 flex items-center">
                     <AlertCircle className="w-4 h-4 mr-1" />
-                    {validationErrors['customerInfo.cnNumber']}
+                    {validationErrors['customerInfo.address.city']}
                   </p>
                 )}
               </div>
@@ -846,78 +850,39 @@ const SalesFormPage = ({ onSuccess }) => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    name="customerInfo.address.city"
-                    value={formData.customerInfo.address.city}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                      validationErrors['customerInfo.address.city'] ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Enter customer city"
-                  />
-                  {validationErrors['customerInfo.address.city'] && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center">
-                      <AlertCircle className="w-4 h-4 mr-1" />
-                      {validationErrors['customerInfo.address.city']}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Agent Name
-                  </label>
-                  <input
-                    type="text"
-                    name="agentName"
-                    value={formData.agentName}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Enter agent name"
-                  />
-                </div>
+              {/* Row 3: Sale Date & Time and System Timestamp */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sale Date &amp; Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  name="orderDate"
+                  value={formatDateTimeLocal(formData.orderDate)}
+                  onChange={(e) => handleOrderDateChange(e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    validationErrors.orderDate ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {validationErrors.orderDate && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                    {validationErrors.orderDate}
+                  </p>
+                )}
               </div>
 
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sale Date &amp; Time *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    name="orderDate"
-                    value={formatDateTimeLocal(formData.orderDate)}
-                    onChange={(e) => handleOrderDateChange(e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                      validationErrors.orderDate ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {validationErrors.orderDate && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center">
-                      <AlertCircle className="w-4 h-4 mr-1" />
-                      {validationErrors.orderDate}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    System Timestamp
-                  </label>
-                  <input
-                    type="text"
-                    name="timestamp"
-                    value={new Date(formData.timestamp).toLocaleString()}
-                    readOnly
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  System Timestamp
+                </label>
+                <input
+                  type="text"
+                  name="timestamp"
+                  value={new Date(formData.timestamp).toLocaleString()}
+                  readOnly
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                />
               </div>
 
               {/* Status field - only shown when editing (read-only) */}

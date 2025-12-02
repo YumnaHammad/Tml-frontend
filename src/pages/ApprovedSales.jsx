@@ -88,9 +88,71 @@ const ApprovedSales = () => {
     return exportSales(sales, format, filename);
   };
 
-  // Pagination
+  // Handle checkbox selection
+  const handleSelectSale = (saleId) => {
+    setSelectedSales((prev) => {
+      if (prev.includes(saleId)) {
+        return prev.filter((id) => id !== saleId);
+      } else {
+        return [...prev, saleId];
+      }
+    });
+  };
+
+  // Pagination - define currentSales first
   const totalPages = Math.ceil(totalSalesCount / itemsPerPage);
   const currentSales = sales;
+
+  // Handle select all
+  const handleSelectAll = () => {
+    if (selectedSales.length === currentSales.length) {
+      setSelectedSales([]);
+    } else {
+      const allSaleIds = currentSales.map((sale) => sale._id);
+      setSelectedSales(allSaleIds);
+    }
+  };
+
+  // Check if all sales are selected
+  const allSelected =
+    currentSales.length > 0 && selectedSales.length === currentSales.length;
+  const someSelected =
+    selectedSales.length > 0 && selectedSales.length < currentSales.length;
+
+  // Set indeterminate state for select all checkbox
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = someSelected;
+    }
+  }, [someSelected]);
+
+  // Handle bulk QC status update
+  const handleBulkQCStatusUpdate = async (status) => {
+    if (selectedSales.length === 0) {
+      toast.error("Please select at least one sale to update");
+      return;
+    }
+
+    try {
+      toast.loading(`Updating ${selectedSales.length} sale(s)...`);
+      
+      // Update each selected sale
+      const updatePromises = selectedSales.map((saleId) =>
+        api.patch(`/sales/${saleId}/qc-status`, { qcStatus: status })
+      );
+
+      await Promise.all(updatePromises);
+
+      toast.dismiss();
+      toast.success(`Successfully updated ${selectedSales.length} sale(s)`);
+      setSelectedSales([]); // Clear selection
+      fetchApprovedSales(); // Refresh the list
+    } catch (error) {
+      console.error("Error updating QC status:", error);
+      toast.dismiss();
+      toast.error("Failed to update some sales");
+    }
+  };
 
   if (loading) {
     return <CenteredLoader message="Loading approved sales..." size="large" />;
