@@ -41,6 +41,7 @@ import CityReports from "./pages/CityReports";
 import Finance from "./pages/Finance";
 import Unauthorized from "./pages/Unauthorized";
 import Leads from "./pages/Leads";
+import OldCRM from "./pages/OldCRM";
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -386,6 +387,16 @@ function AppRoutes() {
           element={
             <RoleBasedRoute allowedRoles={["admin", "manager", "agent"]}>
               <Leads />
+            </RoleBasedRoute>
+          }
+        />
+
+        {/* Old CRM */}
+        <Route
+          path="old-crm"
+          element={
+            <RoleBasedRoute allowedRoles={["admin", "manager", "agent"]}>
+              <OldCRM />
             </RoleBasedRoute>
           }
         />
