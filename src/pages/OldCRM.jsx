@@ -19,10 +19,13 @@ import {
   Calendar,
   UserCheck,
   X,
+  Download,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
 import CenteredLoader from "../components/CenteredLoader";
+import ExportButton from "../components/ExportButton";
+import { exportToExcel } from "../utils/exportUtils";
 
 const OldCRM = () => {
   const [loading, setLoading] = useState(true);
@@ -36,10 +39,12 @@ const OldCRM = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // all, open, resolved, pending
   const [assigneeFilter, setAssigneeFilter] = useState("all"); // all, mine, assigned, unassigned
+  const [timeFilter, setTimeFilter] = useState("all"); // all, today, week, month
   const [viewMode, setViewMode] = useState("table"); // table or grid
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [allConversations, setAllConversations] = useState([]); // Store all conversations for "All Time"
 
   // Fetch conversations from Chatwoot API via backend proxy
   const fetchConversations = async () => {
@@ -48,6 +53,8 @@ const OldCRM = () => {
       setRefreshing(true);
 
       const params = {};
+      
+      // Apply status and assignee filters (these are server-side filters)
       if (statusFilter !== "all") {
         params.status = statusFilter;
       }
@@ -55,38 +62,61 @@ const OldCRM = () => {
         params.assignee_type = assigneeFilter;
       }
 
+      // When "All Time" is selected and no other filters, fetch all pages
+      if (timeFilter === "all" && statusFilter === "all" && assigneeFilter === "all") {
+        params.fetchAll = "true"; // Send as string for query params
+      }
+
+      console.log("Fetching conversations with params:", params);
+
       const response = await api.get("/chatwoot/conversations", { params });
 
       console.log("Chatwoot API Response:", response.data);
+      console.log("Response data structure:", {
+        hasSuccess: !!response.data?.success,
+        hasData: !!response.data?.data,
+        hasDataData: !!response.data?.data?.data,
+        hasPayload: !!response.data?.data?.data?.payload,
+        payloadLength: response.data?.data?.data?.payload?.length || 0
+      });
 
       if (response.data && response.data.success) {
         // Backend wraps Chatwoot response in { success: true, data: chatwootResponse }
         // Chatwoot response structure: { data: { meta: {...}, payload: [...] } }
         const chatwootResponse = response.data.data;
         
-        if (chatwootResponse && chatwootResponse.data) {
-          // Standard Chatwoot structure
-          const conversationsData = chatwootResponse.data.payload || [];
-          const metaData = chatwootResponse.data.meta || {};
-
-          setConversations(conversationsData);
-          setMeta(metaData);
+        let conversationsData = [];
+        let metaData = {};
+        
+        // Try multiple response structures
+        if (chatwootResponse && chatwootResponse.data && chatwootResponse.data.payload) {
+          // Standard nested structure: data.data.payload
+          conversationsData = chatwootResponse.data.payload || [];
+          metaData = chatwootResponse.data.meta || {};
         } else if (chatwootResponse && chatwootResponse.payload) {
-          // Fallback: direct payload structure
-          const conversationsData = chatwootResponse.payload || [];
-          const metaData = chatwootResponse.meta || {};
-          setConversations(conversationsData);
-          setMeta(metaData);
-        } else {
-          console.warn("Unexpected response structure:", chatwootResponse);
-          setConversations([]);
-          setMeta({
-            mine_count: 0,
-            assigned_count: 0,
-            unassigned_count: 0,
-            all_count: 0,
-          });
-          toast.error("Unexpected response format from Chatwoot");
+          // Direct payload structure: data.payload
+          conversationsData = chatwootResponse.payload || [];
+          metaData = chatwootResponse.meta || {};
+        } else if (chatwootResponse && Array.isArray(chatwootResponse)) {
+          // Direct array
+          conversationsData = chatwootResponse;
+        } else if (Array.isArray(chatwootResponse.data)) {
+          // Array in data field
+          conversationsData = chatwootResponse.data;
+        }
+
+        console.log(`📊 Parsed ${conversationsData.length} conversations from response`);
+
+        setConversations(conversationsData);
+        // Store all conversations when fetchAll was used (for "All Time")
+        if (timeFilter === "all" && statusFilter === "all" && assigneeFilter === "all") {
+          console.log(`💾 Storing ${conversationsData.length} conversations for "All Time" filter`);
+          setAllConversations(conversationsData);
+        }
+        setMeta(metaData);
+        
+        if (conversationsData.length === 0) {
+          console.warn("⚠️ No conversations found in response:", chatwootResponse);
         }
       } else {
         setConversations([]);
@@ -115,11 +145,19 @@ const OldCRM = () => {
   };
 
   useEffect(() => {
+    // Refetch when status, assignee, or time filter changes
+    // When "All Time" is selected with no other filters, fetch all pages
     fetchConversations();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, assigneeFilter, timeFilter]);
 
-  // Filter conversations
-  const filteredConversations = conversations.filter((conv) => {
+  // Filter conversations based on search and time filter
+  // Use allConversations when "All Time" is selected, otherwise use filtered conversations
+  const conversationsToFilter = timeFilter === "all" && allConversations.length > 0 
+    ? allConversations 
+    : conversations;
+  
+  const filteredConversations = conversationsToFilter.filter((conv) => {
     // Search filter
     if (searchQuery) {
       const searchLower = searchQuery.toLowerCase();
@@ -156,8 +194,62 @@ const OldCRM = () => {
         return false;
     }
 
+    // Time filter (client-side filtering)
+    if (timeFilter !== "all") {
+      const now = new Date();
+      const convDate = new Date((conv.last_activity_at || conv.created_at) * 1000);
+      
+      switch (timeFilter) {
+        case "today":
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (convDate < today) return false;
+          break;
+        case "week":
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (convDate < weekAgo) return false;
+          break;
+        case "month":
+          const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (convDate < monthAgo) return false;
+          break;
+        default:
+          break;
+      }
+    }
+
     return true;
   });
+
+  // Handle export to Excel
+  const handleExport = () => {
+    try {
+      const exportData = filteredConversations.map((conv, index) => ({
+        "S.No": index + 1,
+        "Customer Name": conv.meta?.sender?.name || "Unknown",
+        "Phone Number": conv.meta?.sender?.phone_number || "N/A",
+        "Email": conv.meta?.sender?.email || "N/A",
+        "Channel": conv.meta?.channel?.replace("Channel::", "") || "N/A",
+        "Assignee": conv.meta?.assignee?.name || "Unassigned",
+        "Status": conv.status || "N/A",
+        "Last Activity": formatDate(conv.last_activity_at),
+        "Created At": formatDate(conv.created_at),
+        "Messages Count": conv.messages?.length || 0,
+        "Unread Count": conv.unread_count || 0,
+      }));
+
+      const filename = `chatwoot-conversations-${timeFilter === "all" ? "all-time" : timeFilter}-${new Date().toISOString().split("T")[0]}`;
+      const result = exportToExcel(exportData, filename, "Chatwoot Conversations");
+
+      if (result && result.success) {
+        toast.success(`Exported ${filteredConversations.length} conversations to Excel`);
+      } else {
+        toast.error(result?.error || "Export failed");
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export conversations");
+    }
+  };
 
   const handleViewConversation = (conversation) => {
     setSelectedConversation(conversation);
@@ -283,6 +375,16 @@ const OldCRM = () => {
               <option value="assigned">Assigned</option>
               <option value="unassigned">Unassigned</option>
             </select>
+            <select
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
             <div className="flex gap-2">
               <button
                 onClick={() => setViewMode("table")}
@@ -307,7 +409,7 @@ const OldCRM = () => {
                 Grid
               </button>
               <button
-                onClick={fetchConversations}
+                onClick={() => fetchConversations()}
                 disabled={refreshing}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
               >
@@ -316,11 +418,47 @@ const OldCRM = () => {
                 />
                 Refresh
               </button>
+              {(timeFilter !== "all" || statusFilter !== "all" || assigneeFilter !== "all") && (
+                <button
+                  onClick={() => {
+                    setTimeFilter("all");
+                    setStatusFilter("all");
+                    setAssigneeFilter("all");
+                    // This will trigger useEffect to fetch all
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                  title="Load All Conversations"
+                >
+                  <Download className="h-5 w-5" />
+                  Load All
+                </button>
+              )}
+              <button
+                onClick={handleExport}
+                disabled={filteredConversations.length === 0}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Export to Excel"
+              >
+                <Download className="h-5 w-5" />
+                Export
+              </button>
             </div>
           </div>
         </div>
 
         {/* Conversations Display */}
+        <div className="mb-4 flex justify-between items-center">
+          <p className="text-sm text-gray-600">
+            Showing {filteredConversations.length} of {timeFilter === "all" && allConversations.length > 0 
+              ? allConversations.length 
+              : conversations.length} conversations
+            {timeFilter === "all" && statusFilter === "all" && assigneeFilter === "all" && (
+              <span className="ml-2 text-blue-600 font-semibold">
+                (All {meta.all_count || 0} conversations loaded)
+              </span>
+            )}
+          </p>
+        </div>
         {filteredConversations.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <p className="text-gray-500">No conversations found</p>
