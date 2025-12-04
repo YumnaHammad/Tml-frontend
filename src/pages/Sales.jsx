@@ -73,13 +73,14 @@ const Sales = () => {
   const fetchSales = async () => {
     try {
       setRefreshing(true);
-      // When searching OR "All Time" is selected, show ALL results (no pagination limit)
+      // When searching OR "All Time" is selected OR date filter is applied, show ALL results (no pagination limit)
       // Otherwise, use normal pagination
       const isSearching = searchTerm.trim().length > 0;
       const isAllTime = timeFilter === "all";
-      const showAllResults = isSearching || isAllTime;
+      const isDateFiltered = timeFilter === "day" || timeFilter === "custom" || timeFilter === "week" || timeFilter === "month" || timeFilter === "90days" || timeFilter === "year";
+      const showAllResults = isSearching || isAllTime || isDateFiltered;
 
-      const pageSize = showAllResults ? 10000 : itemsPerPage; // Show all results when searching or "All Time"
+      const pageSize = showAllResults ? 10000 : itemsPerPage; // Show all results when searching, All Time, or date filtered
       const params = new URLSearchParams({
         page: showAllResults ? "1" : currentPage.toString(), // Always page 1 when showing all results
         limit: pageSize.toString(),
@@ -195,34 +196,11 @@ const Sales = () => {
       // Always use real data from API, even if empty
       setSales(sortedSales);
 
-      // For stats, we need to fetch aggregated data separately for accuracy
-      // For now, calculate from current page (approximate) or fetch stats endpoint if available
-      // Note: For large datasets, stats should come from separate aggregation endpoint
-      const stats = {
-        totalSales: totalFromServer || salesData.length,
-        // For delivered/returns/revenue, approximate from current page or use aggregation
-        totalDelivered: salesData.filter(
-          (sale) =>
-            sale.status === "delivered" || sale.status === "confirmed_delivered"
-        ).length,
-        totalReturns: salesData.filter(
-          (sale) =>
-            sale.status === "returned" || sale.status === "expected_return"
-        ).length,
-        totalRevenue: salesData
-          .filter(
-            (sale) =>
-              sale.status !== "returned" &&
-              sale.status !== "expected_return" &&
-              sale.status !== "cancelled"
-          )
-          .reduce((sum, sale) => sum + (sale.totalAmount || 0), 0),
-      };
-
       // Store total for pagination
       setTotalSalesCount(totalFromServer);
 
-      setSalesStats(stats);
+      // Stats will be calculated in useEffect based on filtered sales
+      // This ensures stats reflect the current filter (Today, Week, etc.)
     } catch (error) {
       console.error("Error fetching sales:", error);
 
@@ -433,6 +411,131 @@ const Sales = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, searchTerm, timeFilter, selectedDate]);
 
+  // Update stats based on filtered sales whenever filters or sales data change
+  useEffect(() => {
+    // Calculate stats from filtered sales
+    const isAllTime = timeFilter === "all";
+    const isSearching = searchTerm.trim().length > 0;
+    
+    let salesToCalculate = sales;
+    
+    // Apply search filter if searching
+    if (isSearching && searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      salesToCalculate = sales.filter((sale) => {
+        const phone = (sale.customerInfo?.phone || "").toLowerCase();
+        const cnNumber = (sale.customerInfo?.cnNumber || "").toLowerCase();
+        const agentName = (sale.agentName || "").toLowerCase();
+        const customerName = (sale.customerInfo?.name || "").toLowerCase();
+        const productName = sale.items?.some((item) =>
+          (item.productId?.name || "").toLowerCase().includes(searchLower)
+        );
+        
+        return (
+          phone.includes(searchLower) ||
+          cnNumber.includes(searchLower) ||
+          agentName.includes(searchLower) ||
+          customerName.includes(searchLower) ||
+          productName
+        );
+      });
+    }
+    
+    // Apply client-side time filter if not "All Time"
+    if (!isAllTime) {
+      const now = new Date();
+      let filterDate;
+
+      switch (timeFilter) {
+        case "day":
+          filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          filterDate.setHours(0, 0, 0, 0);
+          const todayEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          todayEndDate.setHours(23, 59, 59, 999);
+          salesToCalculate = sales.filter((sale) => {
+            const saleDate = new Date(sale.orderDate || sale.createdAt);
+            return saleDate >= filterDate && saleDate <= todayEndDate;
+          });
+          break;
+        case "week":
+          filterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          salesToCalculate = sales.filter((sale) => {
+            const saleDate = new Date(sale.orderDate || sale.createdAt);
+            return saleDate >= filterDate;
+          });
+          break;
+        case "month":
+          filterDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          salesToCalculate = sales.filter((sale) => {
+            const saleDate = new Date(sale.orderDate || sale.createdAt);
+            return saleDate >= filterDate;
+          });
+          break;
+        case "90days":
+          filterDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          salesToCalculate = sales.filter((sale) => {
+            const saleDate = new Date(sale.orderDate || sale.createdAt);
+            return saleDate >= filterDate;
+          });
+          break;
+        case "year":
+          filterDate = new Date(now.getFullYear(), 0, 1);
+          salesToCalculate = sales.filter((sale) => {
+            const saleDate = new Date(sale.orderDate || sale.createdAt);
+            return saleDate >= filterDate;
+          });
+          break;
+        case "custom":
+          if (selectedDate) {
+            const selected = new Date(selectedDate);
+            const startOfDay = new Date(
+              selected.getFullYear(),
+              selected.getMonth(),
+              selected.getDate()
+            );
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(
+              selected.getFullYear(),
+              selected.getMonth(),
+              selected.getDate()
+            );
+            endOfDay.setHours(23, 59, 59, 999);
+            salesToCalculate = sales.filter((sale) => {
+              // Use orderDate (Sales date) as primary, fallback to createdAt
+              const saleDate = new Date(sale.orderDate || sale.createdAt);
+              return saleDate >= startOfDay && saleDate <= endOfDay;
+            });
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    // Calculate stats from filtered sales
+    const newStats = {
+      totalSales: salesToCalculate.length,
+      totalDelivered: salesToCalculate.filter(
+        (sale) =>
+          sale.status === "delivered" || sale.status === "confirmed_delivered"
+      ).length,
+      totalReturns: salesToCalculate.filter(
+        (sale) =>
+          sale.status === "returned" || sale.status === "expected_return"
+      ).length,
+      totalRevenue: salesToCalculate
+        .filter(
+          (sale) =>
+            sale.status !== "returned" &&
+            sale.status !== "expected_return" &&
+            sale.status !== "cancelled"
+        )
+        .reduce((sum, sale) => sum + (sale.totalAmount || 0), 0),
+    };
+
+    setSalesStats(newStats);
+  }, [sales, timeFilter, selectedDate, searchTerm]);
+
   // Removed auto-refresh to prevent UI disturbance
 
   // Handle card clicks
@@ -547,9 +650,12 @@ const Sales = () => {
     switch (timeFilter) {
       case "day":
         filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        filterDate.setHours(0, 0, 0, 0);
+        const todayEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        todayEndDate.setHours(23, 59, 59, 999);
         filteredSales = sales.filter((sale) => {
           const saleDate = new Date(sale.orderDate || sale.createdAt);
-          return saleDate >= filterDate;
+          return saleDate >= filterDate && saleDate <= todayEndDate;
         });
         break;
       case "week":
@@ -588,14 +694,17 @@ const Sales = () => {
             selected.getMonth(),
             selected.getDate()
           );
+          startOfDay.setHours(0, 0, 0, 0);
           const endOfDay = new Date(
             selected.getFullYear(),
             selected.getMonth(),
-            selected.getDate() + 1
+            selected.getDate()
           );
+          endOfDay.setHours(23, 59, 59, 999);
           filteredSales = sales.filter((sale) => {
+            // Use orderDate (Sales date) as primary, fallback to createdAt
             const saleDate = new Date(sale.orderDate || sale.createdAt);
-            return saleDate >= startOfDay && saleDate < endOfDay;
+            return saleDate >= startOfDay && saleDate <= endOfDay;
           });
         }
         break;
@@ -658,10 +767,11 @@ const Sales = () => {
     });
   }
 
-  // When "All Time" or searching, show ALL results (no pagination)
+  // When "All Time", searching, or date filter is applied, show ALL results (no pagination)
   // Otherwise, use pagination
   const currentSales = filteredSales;
-  const showPagination = !isAllTime && !isSearching;
+  const isDateFiltered = timeFilter === "day" || timeFilter === "custom" || timeFilter === "week" || timeFilter === "month" || timeFilter === "90days" || timeFilter === "year";
+  const showPagination = !isAllTime && !isSearching && !isDateFiltered;
   const totalPages = showPagination
     ? Math.ceil((totalSalesCount || filteredSales.length) / itemsPerPage)
     : 1;
@@ -1408,12 +1518,16 @@ const Sales = () => {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <h2 className="text-lg font-semibold text-gray-900">
             Sales Records (
-            {searchTerm.trim()
-              ? `${filteredSales.length} of ${totalSalesCount}`
+            {isDateFiltered || isSearching || isAllTime
+              ? `${filteredSales.length}`
               : `${filteredSales.length} of ${
                   totalSalesCount || sales.length
                 }`}{" "}
-            total)
+            {!isDateFiltered && !isSearching && !isAllTime && "total"}
+            {isDateFiltered && "total"}
+            {isSearching && "found"}
+            {isAllTime && "total"}
+            )
           </h2>
           <div className="flex items-center space-x-4 flex-wrap">
             {user?.role !== "agent" && selectedSales.length > 0 && (
