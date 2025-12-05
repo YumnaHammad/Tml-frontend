@@ -61,33 +61,46 @@ const PostExOrderPage = () => {
   // update postex status
   const updatePostExStatus = async (saleId, trackingNumber) => {
     try {
-      const response = await axios.post(
-        `/api/sales-orders/update-postex-status`,
+      // Use api service instead of axios.post directly to ensure auth headers are included
+      const response = await api.post(
+        `/sales-orders/update-postex-status`,
         {
           postExStatus: true,
           id: saleId,
           trackingNumber: trackingNumber,
         }
       );
-      await updateWharehuse(saleId, "Unbooked");
-      toast.success("PostEx status updated successfully");
       console.log("PostEx status updated:", response.data);
+      
+      // Update warehouse status - wait for this to complete before showing success
+      await updateWharehuse(saleId, "Unbooked");
+      
+      // Only show success if both operations succeeded
+      toast.success("PostEx status updated successfully");
+      return { success: true };
     } catch (error) {
       console.error("Error updating postex status:", error);
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to update PostEx status";
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
   const updateWharehuse = async (saleId, newStatus) => {
-    console.log("He tried to run me for updating whsrer house");
+    console.log("Updating warehouse status for sale:", saleId, "to status:", newStatus);
 
     try {
       const response = await api.patch(`/sales/${saleId}/status`, {
         status: newStatus,
       });
       console.log(
-        "Status updated successfully fro whare house:",
+        "Status updated successfully for warehouse:",
         response.data
       );
+      return { success: true };
     } catch (error) {
       console.error("Error updating status:", error);
       console.error("Error details:", {
@@ -97,15 +110,13 @@ const PostExOrderPage = () => {
         saleId,
         newStatus,
       });
-      if (loadingToast) {
-        toast.dismiss(loadingToast);
-      }
 
       const errorMessage =
         error.response?.data?.error ||
         error.message ||
-        "Failed to update status";
+        "Failed to update warehouse status";
       toast.error(errorMessage);
+      throw error; // Re-throw to let caller handle it
     }
   };
 
@@ -168,7 +179,20 @@ const PostExOrderPage = () => {
         ) {
           console.log("postex response is", response);
           const trackingNumber = response.data.dist.trackingNumber;
-          updatePostExStatus(saleId, trackingNumber);
+          
+          // Await the status update to ensure it completes before returning success
+          if (saleId) {
+            const statusUpdateResult = await updatePostExStatus(saleId, trackingNumber);
+            if (!statusUpdateResult.success) {
+              // If status update failed, return error even though PostEx order was created
+              return {
+                success: false,
+                error: statusUpdateResult.error || "PostEx order created but failed to update sale status",
+                trackingNumber: trackingNumber,
+              };
+            }
+          }
+          
           return {
             success: true,
             data: response.data,

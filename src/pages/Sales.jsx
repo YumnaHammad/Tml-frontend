@@ -77,7 +77,7 @@ const Sales = () => {
       // Otherwise, use normal pagination
       const isSearching = searchTerm.trim().length > 0;
       const isAllTime = timeFilter === "all";
-      const isDateFiltered = timeFilter === "day" || timeFilter === "custom" || timeFilter === "week" || timeFilter === "month" || timeFilter === "90days" || timeFilter === "year";
+      const isDateFiltered = timeFilter === "day" || timeFilter === "yesterday" || timeFilter === "custom" || timeFilter === "week" || timeFilter === "month" || timeFilter === "90days" || timeFilter === "year";
       const showAllResults = isSearching || isAllTime || isDateFiltered;
 
       const pageSize = showAllResults ? 10000 : itemsPerPage; // Show all results when searching, All Time, or date filtered
@@ -114,6 +114,25 @@ const Sales = () => {
             params.append("startDate", startDate.toISOString());
             params.append("endDate", todayEndDate.toISOString());
             break;
+          case "yesterday":
+            // For "yesterday", set both start and end date to yesterday's range
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            startDate = new Date(
+              yesterday.getFullYear(),
+              yesterday.getMonth(),
+              yesterday.getDate()
+            );
+            startDate.setHours(0, 0, 0, 0);
+            const yesterdayEndDate = new Date(
+              yesterday.getFullYear(),
+              yesterday.getMonth(),
+              yesterday.getDate()
+            );
+            yesterdayEndDate.setHours(23, 59, 59, 999);
+            params.append("startDate", startDate.toISOString());
+            params.append("endDate", yesterdayEndDate.toISOString());
+            break;
           case "week":
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             params.append("startDate", startDate.toISOString());
@@ -144,8 +163,8 @@ const Sales = () => {
             break;
         }
 
-        // Only append startDate if it wasn't already appended (for day and custom cases)
-        if (timeFilter !== "custom" && timeFilter !== "day" && startDate) {
+        // Only append startDate if it wasn't already appended (for day, yesterday and custom cases)
+        if (timeFilter !== "custom" && timeFilter !== "day" && timeFilter !== "yesterday" && startDate) {
           params.append("startDate", startDate.toISOString());
         }
       }
@@ -457,6 +476,18 @@ const Sales = () => {
             return saleDate >= filterDate && saleDate <= todayEndDate;
           });
           break;
+        case "yesterday":
+          const yesterday = new Date(now);
+          yesterday.setDate(yesterday.getDate() - 1);
+          filterDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+          filterDate.setHours(0, 0, 0, 0);
+          const yesterdayEndDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+          yesterdayEndDate.setHours(23, 59, 59, 999);
+          salesToCalculate = sales.filter((sale) => {
+            const saleDate = new Date(sale.orderDate || sale.createdAt);
+            return saleDate >= filterDate && saleDate <= yesterdayEndDate;
+          });
+          break;
         case "week":
           filterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           salesToCalculate = sales.filter((sale) => {
@@ -563,6 +594,15 @@ const Sales = () => {
             now.getDate()
           );
           break;
+        case "yesterday":
+          const yesterday = new Date(now);
+          yesterday.setDate(yesterday.getDate() - 1);
+          filterDate = new Date(
+            yesterday.getFullYear(),
+            yesterday.getMonth(),
+            yesterday.getDate()
+          );
+          break;
         case "week":
           filterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           break;
@@ -600,10 +640,20 @@ const Sales = () => {
           break;
       }
 
-      if (timeFilter !== "custom") {
+      if (timeFilter !== "custom" && timeFilter !== "yesterday") {
         filteredSales = sales.filter(
           (sale) => new Date(sale.createdAt) >= filterDate
         );
+      } else if (timeFilter === "yesterday") {
+        // For yesterday, filter sales that fall within yesterday's date range
+        const yesterdayStart = new Date(filterDate);
+        yesterdayStart.setHours(0, 0, 0, 0);
+        const yesterdayEnd = new Date(filterDate);
+        yesterdayEnd.setHours(23, 59, 59, 999);
+        filteredSales = sales.filter((sale) => {
+          const saleDate = new Date(sale.createdAt);
+          return saleDate >= yesterdayStart && saleDate <= yesterdayEnd;
+        });
       }
     }
 
@@ -656,6 +706,18 @@ const Sales = () => {
         filteredSales = sales.filter((sale) => {
           const saleDate = new Date(sale.orderDate || sale.createdAt);
           return saleDate >= filterDate && saleDate <= todayEndDate;
+        });
+        break;
+      case "yesterday":
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        filterDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+        filterDate.setHours(0, 0, 0, 0);
+        const yesterdayEndDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+        yesterdayEndDate.setHours(23, 59, 59, 999);
+        filteredSales = sales.filter((sale) => {
+          const saleDate = new Date(sale.orderDate || sale.createdAt);
+          return saleDate >= filterDate && saleDate <= yesterdayEndDate;
         });
         break;
       case "week":
@@ -770,7 +832,7 @@ const Sales = () => {
   // When "All Time", searching, or date filter is applied, show ALL results (no pagination)
   // Otherwise, use pagination
   const currentSales = filteredSales;
-  const isDateFiltered = timeFilter === "day" || timeFilter === "custom" || timeFilter === "week" || timeFilter === "month" || timeFilter === "90days" || timeFilter === "year";
+  const isDateFiltered = timeFilter === "day" || timeFilter === "yesterday" || timeFilter === "custom" || timeFilter === "week" || timeFilter === "month" || timeFilter === "90days" || timeFilter === "year";
   const showPagination = !isAllTime && !isSearching && !isDateFiltered;
   const totalPages = showPagination
     ? Math.ceil((totalSalesCount || filteredSales.length) / itemsPerPage)
@@ -1568,6 +1630,7 @@ const Sales = () => {
             >
               <option value="all">All Time</option>
               <option value="day">Today</option>
+              <option value="yesterday">Yesterday</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
               <option value="90days">Last 90 Days</option>
@@ -1610,6 +1673,8 @@ const Sales = () => {
                       ? new Date(selectedDate).toLocaleDateString()
                       : "the selected date"
                   }`
+                : timeFilter === "yesterday"
+                ? "No sales found for yesterday"
                 : `No sales found for the selected ${timeFilter} period`}
             </p>
             <button
