@@ -49,6 +49,7 @@ const PostExOrders = () => {
   const [statusFilter, setStatusFilter] = useState(""); // Empty means "All Orders"
   const [cityFilter, setCityFilter] = useState("");
   const [orderTypeFilter, setOrderTypeFilter] = useState("");
+  const [showAllOrders, setShowAllOrders] = useState(false); // Toggle to show all orders without pagination
   const [dateRangeFilter, setDateRangeFilter] = useState({
     startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       .toISOString()
@@ -265,12 +266,17 @@ const PostExOrders = () => {
       // Update total count
       setTotalOrdersCount(filteredOrders.length);
 
-      // Apply pagination
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage;
-      const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
-
-      setOrders(paginatedOrders);
+      // Apply pagination - skip if "Show All" is selected
+      if (showAllOrders) {
+        // Show all orders without pagination
+        setOrders(filteredOrders);
+      } else {
+        // Apply pagination
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+        setOrders(paginatedOrders);
+      }
     },
     [
       searchQuery,
@@ -278,6 +284,7 @@ const PostExOrders = () => {
       cityFilter,
       orderTypeFilter,
       dateRangeFilter,
+      showAllOrders,
       currentPage,
       itemsPerPage,
     ]
@@ -738,6 +745,7 @@ const PostExOrders = () => {
     setStatusFilter("");
     setCityFilter("");
     setOrderTypeFilter("");
+    setShowAllOrders(false);
     setDateRangeFilter({
       startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
         .toISOString()
@@ -947,6 +955,31 @@ const PostExOrders = () => {
               <option value="Reverse">Reverse</option>
               <option value="Replacement">Replacement</option>
             </select>
+          </div>
+        </div>
+        
+        {/* Show All Orders Toggle */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="showAllOrders"
+              checked={showAllOrders}
+              onChange={(e) => {
+                setShowAllOrders(e.target.checked);
+                setCurrentPage(1);
+              }}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="showAllOrders" className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Show All Orders (No Pagination)
+            </label>
+            {showAllOrders && (
+              <span className="text-xs text-gray-500 ml-2">
+                ({totalOrdersCount} orders will be displayed)
+              </span>
+            )}
           </div>
         </div>
 
@@ -1282,8 +1315,8 @@ const PostExOrders = () => {
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
+        {/* Pagination - Hide when "Show All" is enabled */}
+        {!showAllOrders && totalPages > 1 && (
           <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
