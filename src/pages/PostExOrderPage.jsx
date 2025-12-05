@@ -37,7 +37,7 @@ const PostExOrderPage = () => {
     pickupCity: "Rawalpindi",
     pickupAddressCode: "001",
     orderDetail: "",
-    notes: "",
+    transactionNotes: "Must Call before Delivery",
   });
 
   const [postExFormData, setPostExFormData] = useState(getInitialFormData());
@@ -136,7 +136,7 @@ const PostExOrderPage = () => {
           customerName: orderData.customerName,
           customerPhone: cleanedPhone, // Phone number without dashes
           deliveryAddress: orderData.deliveryAddress,
-          transactionNotes: orderData.notes || "",
+          transactionNotes:"Must Call before Delivery",
           cityName: orderData.deliveryCity,
           invoiceDivision: parseInt(orderData.airwayBillCopies) || 1,
           items: parseInt(orderData.items) || 1,
@@ -263,7 +263,7 @@ const PostExOrderPage = () => {
             deliveryCity: sale.deliveryAddress?.city || "",
             deliveryAddress: sale.deliveryAddress?.street || "",
             items: sale.items?.length?.toString() || "1",
-            notes: sale.notes || "",
+            transactionNotes: sale.notes || "Must Call before Delivery",
             bookingWeight: 0.5,
           }));
         } catch (error) {
@@ -285,10 +285,7 @@ const PostExOrderPage = () => {
       console.log("Received sale data from location state:", sale);
       
       // Get product name from first item
-      const productName = sale.items?.[0]?.productId?.name || 
-                         sale.items?.[0]?.productName || 
-                         sale.orderNumber || "";
-
+      const productName = sale.items?.[0]?.productId?.name +" "+ sale.items?.[0]?.variantName;
       // Remove dashes from phone number
       const phoneNumber = (sale.customerInfo?.phone || "").replace(/-/g, "");
 
@@ -304,7 +301,7 @@ const PostExOrderPage = () => {
         deliveryCity: sale.deliveryAddress?.city || "",
         deliveryAddress: sale.deliveryAddress?.street || "",
         items: sale.items?.length?.toString() || "1",
-        notes: sale.notes || "",
+        transactionNotes: sale.notes || "",
       }));
     } else if (!saleId) {
       // Reset form to initial empty state when no sale data and no saleId
@@ -711,7 +708,7 @@ const PostExOrderPage = () => {
                   Notes (optional)
                 </label>
                 <textarea
-                  name="notes"
+                  name="transactionNotes"
                   value="Must Call before Delivery"
                   disabled
                   onChange={handlePostExFormChange}
