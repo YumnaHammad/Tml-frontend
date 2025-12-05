@@ -344,6 +344,7 @@ const SalesFormPage = ({ onSuccess }) => {
       items: [...prev.items, {
         productId: '',
         variantId: '',
+        variantName: '',
         quantity: 1,
         unitPrice: 0
       }]
@@ -371,26 +372,44 @@ const SalesFormPage = ({ onSuccess }) => {
   };
 
   const updateItem = async (index, field, value) => {
-    const updatedItems = formData.items.map((item, i) => 
-      i === index 
-        ? { 
-            ...item, 
-            [field]: value,
-            // Reset variant and price when product changes
-            ...(field === 'productId' ? {
-              variantId: '',
-              unitPrice: 0
-            } : {}),
-            // Update unit price when variant is selected
-            ...(field === 'variantId' ? {
-              unitPrice: getVariantPrice(value, item.productId)
-            } : {}),
-            ...(field === 'quantity' || field === 'unitPrice' ? {
-              totalPrice: field === 'quantity' ? value * item.unitPrice : item.quantity * value
-            } : {})
+    const updatedItems = formData.items.map((item, i) => {
+      if (i === index) {
+        const updatedItem = { 
+          ...item, 
+          [field]: value,
+        };
+        
+        // Reset variant and price when product changes
+        if (field === 'productId') {
+          updatedItem.variantId = '';
+          updatedItem.variantName = '';
+          updatedItem.unitPrice = 0;
+        }
+        
+        // Update unit price and variantName when variant is selected
+        if (field === 'variantId') {
+          updatedItem.unitPrice = getVariantPrice(value, item.productId);
+          // Get variant name from product
+          const product = products.find(p => p._id === item.productId);
+          if (product && product.variants) {
+            const variant = product.variants.find(v => (v._id || v.sku) === value);
+            updatedItem.variantName = variant?.name || null;
+          } else {
+            updatedItem.variantName = null;
           }
-        : item
-    );
+        }
+        
+        // Update total price when quantity or unit price changes
+        if (field === 'quantity' || field === 'unitPrice') {
+          updatedItem.totalPrice = field === 'quantity' 
+            ? value * (updatedItem.unitPrice || item.unitPrice) 
+            : (updatedItem.quantity || item.quantity) * value;
+        }
+        
+        return updatedItem;
+      }
+      return item;
+    });
 
     setFormData(prev => ({
       ...prev,
