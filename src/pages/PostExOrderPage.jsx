@@ -267,9 +267,7 @@ const PostExOrderPage = () => {
           console.log("Fetched sale data:", sale);
 
           // Get product name from first item
-          const productName = sale.items?.[0]?.productId?.name || 
-                             sale.items?.[0]?.productName || 
-                             sale.orderNumber || "";
+          const productName = sale.items?.[0]?.productId?.name +" "+ sale.items?.[0]?.variantName;
 
           // Remove dashes from phone number
           const phoneNumber = (sale.customerInfo?.phone || "").replace(/-/g, "");
