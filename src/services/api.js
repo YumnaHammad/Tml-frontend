@@ -12,7 +12,7 @@ const getBaseURL = () => {
     return '/api';
   }
   
-  // Production: Check for environment variable first, but reject localhost:5000
+  // Production: Check for environment variable first
   const apiUrl = import.meta.env.VITE_API_URL;
   
   if (apiUrl && !apiUrl.includes('localhost:5000')) {
@@ -20,7 +20,7 @@ const getBaseURL = () => {
   }
   
   // Production fallback - Vercel backend
-  return 'http://localhost:5000/api';
+  return 'https://tml-backend.vercel.app/api';
 };
 
 const api = axios.create({

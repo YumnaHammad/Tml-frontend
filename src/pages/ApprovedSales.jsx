@@ -9,6 +9,7 @@ import {
   Table2,
   List,
   X,
+  Calendar,
 } from "lucide-react";
 import CenteredLoader from "../components/CenteredLoader";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +29,8 @@ const ApprovedSales = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const [selectedSales, setSelectedSales] = useState([]); // Array of sale IDs for bulk actions
+  const [timeFilter, setTimeFilter] = useState("day"); // all, day, yesterday, week, month, 90days, year, custom - default to "day" (Today)
+  const [selectedDate, setSelectedDate] = useState(""); // For custom date picker
   const selectAllCheckboxRef = useRef(null);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -36,11 +39,97 @@ const ApprovedSales = () => {
   const fetchApprovedSales = async () => {
     try {
       setRefreshing(true);
+      
+      // When date filtering is applied, show all results (no pagination limit)
+      const isDateFiltered = timeFilter !== "all";
+      const pageSize = isDateFiltered ? 10000 : itemsPerPage;
+      
       const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: itemsPerPage.toString(),
+        page: isDateFiltered ? "1" : currentPage.toString(),
+        limit: pageSize.toString(),
       });
 
+      // Add date filter to backend
+      if (timeFilter !== "all") {
+        const now = new Date();
+        let startDate;
+
+        switch (timeFilter) {
+          case "day":
+            // For "today", set both start and end date to today's range
+            startDate = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate()
+            );
+            startDate.setHours(0, 0, 0, 0);
+            const todayEndDate = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate()
+            );
+            todayEndDate.setHours(23, 59, 59, 999);
+            params.append("startDate", startDate.toISOString());
+            params.append("endDate", todayEndDate.toISOString());
+            console.log("Today filter:", { startDate: startDate.toISOString(), endDate: todayEndDate.toISOString() });
+            break;
+          case "yesterday":
+            // For "yesterday", set both start and end date to yesterday's range
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            startDate = new Date(
+              yesterday.getFullYear(),
+              yesterday.getMonth(),
+              yesterday.getDate()
+            );
+            startDate.setHours(0, 0, 0, 0);
+            const yesterdayEndDate = new Date(
+              yesterday.getFullYear(),
+              yesterday.getMonth(),
+              yesterday.getDate()
+            );
+            yesterdayEndDate.setHours(23, 59, 59, 999);
+            params.append("startDate", startDate.toISOString());
+            params.append("endDate", yesterdayEndDate.toISOString());
+            console.log("Yesterday filter:", { startDate: startDate.toISOString(), endDate: yesterdayEndDate.toISOString() });
+            break;
+          case "week":
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            params.append("startDate", startDate.toISOString());
+            console.log("Week filter:", { startDate: startDate.toISOString() });
+            break;
+          case "month":
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            params.append("startDate", startDate.toISOString());
+            console.log("Month filter:", { startDate: startDate.toISOString() });
+            break;
+          case "90days":
+            startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+            params.append("startDate", startDate.toISOString());
+            console.log("90 days filter:", { startDate: startDate.toISOString() });
+            break;
+          case "year":
+            startDate = new Date(now.getFullYear(), 0, 1);
+            params.append("startDate", startDate.toISOString());
+            console.log("Year filter:", { startDate: startDate.toISOString() });
+            break;
+          case "custom":
+            if (selectedDate) {
+              startDate = new Date(selectedDate);
+              startDate.setHours(0, 0, 0, 0);
+              const endDate = new Date(selectedDate);
+              endDate.setHours(23, 59, 59, 999);
+              params.append("startDate", startDate.toISOString());
+              params.append("endDate", endDate.toISOString());
+              console.log("Custom filter:", { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+            }
+            break;
+          default:
+            break;
+        }
+      }
+
+      console.log("Fetching approved sales with params:", params.toString());
       const response = await api.get(`/sales/approved?${params.toString()}`);
       const salesData = response.data?.salesOrders || [];
       const totalFromServer = response.data?.total || 0;
@@ -60,10 +149,26 @@ const ApprovedSales = () => {
 
   useEffect(() => {
     fetchApprovedSales();
-  }, [currentPage]);
+  }, [currentPage, timeFilter, selectedDate]);
 
   const handleRefresh = () => {
     fetchApprovedSales();
+  };
+
+  // Handle filter change
+  const handleFilterChange = (newFilter) => {
+    setTimeFilter(newFilter);
+    if (newFilter !== "custom") {
+      setSelectedDate(""); // Clear selected date when switching to other filters
+    }
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  // Handle date change
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+    setTimeFilter("custom");
+    setCurrentPage(1); // Reset to first page when date changes
   };
 
   const handleView = (sale) => {
@@ -258,36 +363,63 @@ const ApprovedSales = () => {
       {viewMode === "table" && (
         <div className="mt-6">
           <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
-            <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Approved Sales Records ({totalSalesCount} total)
-              </h3>
-              <div className="flex items-center gap-2">
-                {user?.role !== "agent" && selectedSales.length > 0 && (
-                  <>
-                    <button
-                      onClick={() => handleBulkQCStatusUpdate("approved")}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm"
+            <div className="px-4 py-3 border-b border-gray-200">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Approved Sales Records ({totalSalesCount} total)
+                </h3>
+                
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Date Filter Section - Aligned with buttons */}
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <select
+                      value={timeFilter}
+                      onChange={(e) => handleFilterChange(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 cursor-pointer bg-white"
+                      title="Filter by date"
                     >
-                      <CheckCircle className="w-4 h-4" />
-                      Approve QC ({selectedSales.length})
-                    </button>
-                    <button
-                      onClick={() => handleBulkQCStatusUpdate("rejected")}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
-                    >
-                      <X className="w-4 h-4" />
-                      Reject QC ({selectedSales.length})
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => navigate("/approved-sales/postex-order")}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-medium"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Proceed to PostEx
-                </button>
+                      <option value="all">All Time</option>
+                      <option value="day">Today</option>
+                      <option value="yesterday">Yesterday</option>
+                      <option value="week">This Week</option>
+                      <option value="month">This Month</option>
+                      <option value="90days">Last 90 Days</option>
+                      <option value="year">This Year</option>
+                      <option value="custom">Custom Date</option>
+                    </select>
+                    {timeFilter === "custom" && (
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => handleDateChange(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 cursor-pointer bg-white"
+                        title="Select specific date"
+                        max={new Date().toISOString().split("T")[0]} // Don't allow future dates
+                      />
+                    )}
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  {user?.role !== "agent" && selectedSales.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => handleBulkQCStatusUpdate("approved")}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Approve QC ({selectedSales.length})
+                      </button>
+                      <button
+                        onClick={() => handleBulkQCStatusUpdate("rejected")}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+                      >
+                        <X className="w-4 h-4" />
+                        Reject QC ({selectedSales.length})
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -358,7 +490,17 @@ const ApprovedSales = () => {
                         colSpan={user?.role !== "agent" ? 13 : 12}
                         className="px-6 py-8 text-center text-gray-500"
                       >
-                        No approved sales orders found.
+                        {timeFilter === "all"
+                          ? "No approved sales orders found."
+                          : timeFilter === "custom"
+                          ? `No approved sales found for ${
+                              selectedDate
+                                ? new Date(selectedDate).toLocaleDateString()
+                                : "the selected date"
+                            }`
+                          : timeFilter === "yesterday"
+                          ? "No approved sales found for yesterday"
+                          : `No approved sales found for the selected ${timeFilter} period`}
                       </td>
                     </tr>
                   ) : (
